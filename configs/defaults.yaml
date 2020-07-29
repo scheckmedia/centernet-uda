@@ -1,0 +1,63 @@
+model:
+  name: models.dla
+  params:
+    num_layers: 34
+    num_classes: 6
+
+datasets:
+  training:
+    name: datasets.coco
+    params:
+      image_folder: /mnt/data/datasets/theodore_plus/images/
+      annotation_file: /mnt/data/datasets/theodore_plus/coco/annotations/instances.json
+      target_domain_glob:
+        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/data/datasets/CEPDOF/**/*.jpg
+      augmentation:
+        - GammaContrast:
+            gamma: [0.2, 1.5]
+        - Affine:
+            translate_percent: [0.0, 0.1]
+            scale: [0.8, 1.3]
+            rotate: [-45, 45]
+            backend: skimage
+        - AdditiveGaussianNoise:
+            scale: [0, 50]
+        - Fliplr:
+            p: 0.5
+        - Flipud:
+            p: 0.5
+
+  validation:
+    name: datasets.coco
+    params:
+      image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
+      annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_training.json
+      target_domain_glob:
+        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/data/datasets/CEPDOF/**/*.jpg
+
+optimizer:
+  name: Adam
+  params:
+    lr: 0.01
+
+centernet_loss:
+  class: losses.centernet.DetectionLoss
+  params:
+    hm_weight: 1.0
+    off_weight: 1.0
+    wh_weight: 0.1
+
+uda:
+  EntropyMinimization:
+    entropy_weight: 0.001
+
+max_detections: 150
+epochs: 100
+batch_size: 16
+num_workers: 0
+seed: 42
+gpus:
+  - 0
+  - 1
