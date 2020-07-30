@@ -13,25 +13,22 @@ class DetectionLoss(torch.nn.Module):
         self.wh_weight = wh_weight
         self.off_weight = off_weight
 
-    def forward(self, outputs, batch):
+    def forward(self, output, batch):
         hm_loss, wh_loss, off_loss = 0.0, 0.0, 0.0
-        num_stacks = len(outputs)
 
-        for stack in range(num_stacks):
-            output = outputs[stack]
-            output['hm'] = _sigmoid(output['hm'])
+        output['hm'] = _sigmoid(output['hm'])
 
-            hm_loss += self.crit_hm(output['hm'], batch['hm']) / num_stacks
-            wh_loss += self.crit_reg(output['wh'], batch['reg_mask'],
-                                     batch['ind'], batch['wh']) / num_stacks
-            off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
-                                      batch['ind'], batch['reg']) / num_stacks
+        hm_loss += self.crit_hm(output['hm'], batch['hm'])
+        wh_loss += self.crit_reg(output['wh'], batch['reg_mask'],
+                                 batch['ind'], batch['wh'])
+        off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
+                                  batch['ind'], batch['reg'])
 
         loss = self.hm_weight * hm_loss
         loss += self.wh_weight * wh_loss
         loss += self.off_weight * off_loss
 
-        loss_stats = {'loss': loss, 'hm_loss': hm_loss,
+        loss_stats = {'centernet_loss': loss, 'hm_loss': hm_loss,
                       'wh_loss': wh_loss, 'off_loss': off_loss}
         return loss, loss_stats
 

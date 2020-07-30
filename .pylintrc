@@ -1,0 +1,7 @@
+[MESSAGES CONTROL]
+disable=all
+
+enable=E0602,
+    R1705,
+    W0611,
+    W1203

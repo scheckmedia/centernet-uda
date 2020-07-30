@@ -36,6 +36,9 @@ datasets:
       target_domain_glob:
         - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
         - /mnt/data/datasets/CEPDOF/**/*.jpg
+normalize:
+  mean: [0.40789654, 0.44719302, 0.47026115]
+  std: [0.28863828, 0.27408164, 0.27809835]
 
 optimizer:
   name: Adam
@@ -53,6 +56,9 @@ uda:
   EntropyMinimization:
     entropy_weight: 0.001
 
+evaluation:
+  coco:
+    per_class: False
 max_detections: 150
 epochs: 100
 batch_size: 16
