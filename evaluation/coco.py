@@ -64,6 +64,7 @@ class Evaluator():
                 'pip install -e \'git+https://github.com/cocodataset/coco.git'
                 '#egg=pycocotools&subdirectory=PythonAPI\'')
         self.per_class = per_class
+        self.classes = None
         self.gt_coco = pycocotools.coco.COCO()
         self.pred_coco = pycocotools.coco.COCO()
         self.ids = []
@@ -182,13 +183,18 @@ class Evaluator():
                 continue
 
             nk = self.__coco_key_mapping[k]
+            nk = nk.replace(
+                '(', '').replace(
+                ')', '').replace(
+                ' ', '_').replace(
+                '@', '')
 
             if self.per_class and not k.startswith('m'):
                 for cid in coco_results['existent_labels']:
                     label = cid
 
-                    if self.labels is not None and cid in self.labels:
-                        label = self.labels[cid]
+                    if self.classes is not None and cid in self.classes:
+                        label = self.classes[cid]["name"]
 
                     # label = self.labels[cid] if self.labels is not None and cid in self.labels else cid
                     label = nk.format(str(label))

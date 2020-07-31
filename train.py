@@ -9,7 +9,7 @@ from utils.helper import AverageMeter
 from utils.visualize import Visualizer
 from tensorboardX import SummaryWriter
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("uda")
 torch.backends.cudnn.benchmark = True
 
 
@@ -40,10 +40,6 @@ def load_datasets(cfg, down_ratio):
     return training_loader, validation_loader
 
 
-def load_model(cfg, model):
-    pass
-
-
 @hydra.main(config_path="configs/defaults.yaml")
 def main(cfg: DictConfig) -> None:
     writer = SummaryWriter('logs')
@@ -66,23 +62,36 @@ def main(cfg: DictConfig) -> None:
     uda.model = model
     uda.optimizer = optimizer
     uda.summary_writer = writer
-    uda.centernet_loss = hydra.utils.instantiate(cfg.centernet_loss)
+    uda.centernet_loss = hydra.utils.get_class(
+        f"losses.{cfg.centernet_loss.name}")(
+        **cfg.centernet_loss.params)
     uda.visualizer = Visualizer(0.3, cfg.normalize.mean, cfg.normalize.std)
+
+    train_loader, val_loader = load_datasets(cfg, down_ratio=model.down_ratio)
+    uda.classes = val_loader.dataset.classes
 
     evaluators = []
     for e in cfg.evaluation:
         e = hydra.utils.get_class(
             f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
+        e.classes = uda.classes
         evaluators.append(e)
 
-    train_loader, val_loader = load_datasets(cfg, down_ratio=model.down_ratio)
-    uda.classes = val_loader.dataset.classes
-
-    start = 0
+    start_epoch = 1
+    if cfg.pretrained is not None and cfg.resume is None:
+        start_epoch = uda.load_model(cfg.pretrained)
+    elif cfg.resume is not None:
+        start_epoch = uda.load_model(cfg.pretrained, True)
 
     stats = {}
-    for epoch in tqdm(range(start, cfg.epochs), position=0, desc='Epoch'):
+    best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
+
+    for epoch in tqdm(
+            range(start_epoch, cfg.epochs + 1),
+            position=0, desc='Epoch'):
         running_loss = 0.0
+        tag = 'training'
+
         for step, data in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
@@ -90,13 +99,12 @@ def main(cfg: DictConfig) -> None:
             outputs = uda.step(data)
 
             for k in outputs["stats"]:
-                log_key = f"train/{k}"
+                log_key = f"{tag}/{k}"
                 m = stats.get(log_key, AverageMeter(name=k))
                 m.update(outputs["stats"][k].item(), data["input"].size(0))
                 stats[log_key] = m
 
-            break
-
+        tag = 'validation'
         with torch.no_grad():
             for step, data in tqdm(
                     enumerate(val_loader),
@@ -105,7 +113,7 @@ def main(cfg: DictConfig) -> None:
                 outputs = uda.step(data, is_training=False)
 
                 for k in outputs["stats"]:
-                    log_key = f"val/{k}"
+                    log_key = f"{tag}/{k}"
                     m = stats.get(log_key, AverageMeter(name=k))
                     m.update(outputs["stats"][k].item(), data["input"].size(0))
                     stats[log_key] = m
@@ -114,13 +122,37 @@ def main(cfg: DictConfig) -> None:
                 for e in evaluators:
                     e.add_batch(**detections)
 
-                uda.log_detections(data, detections, epoch)
-                break
-
-        uda.log_stats(stats, epoch)
+                uda.log_detections(data, detections, epoch, tag='validation')
 
         for e in evaluators:
             result = e.evaluate()
+            stats = {**stats, **result}
+
+        scalars = {}
+        for k, s in stats.items():
+            if isinstance(s, AverageMeter):
+                uda.log_stat(k, s.avg, epoch)
+                scalars[k] = s.avg
+                s.reset()
+            else:
+                uda.log_stat(k, s, epoch)
+                scalars[k] = s
+
+        uda.save_model("model_last.pth", epoch, True)
+
+        if not cfg.save_best_metric.name in scalars:
+            log.error(
+                f"Metric {cfg.save_best_metric.name} not valid, valid values are {' '.join(scalars.keys())}")
+            return
+
+        current = scalars[cfg.save_best_metric.name]
+        if (cfg.save_best_metric.mode == 'min' and best > current
+                or cfg.save_best_metric.mode == 'max' and best < current):
+            uda.save_model("model_best.pth", epoch, True)
+            best = current
+
+            log.info(
+                f"Save best model with {cfg.save_best_metric.name} of {current:.4f}")
 
 
 if __name__ == "__main__":

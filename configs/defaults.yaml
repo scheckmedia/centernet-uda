@@ -1,3 +1,14 @@
+experiment: default # experiment name
+
+# path to pretrained weights
+# optimizer states are not restored
+pretrained: /mnt/data/Projects/centernet-uda/weights/coco_dla_2x.pth
+
+# path to last trained model
+# will restore optimizer states
+# if pretraned path is given, resume path is used
+resume:
+
 model:
   name: models.dla
   params:
@@ -46,7 +57,7 @@ optimizer:
     lr: 0.01
 
 centernet_loss:
-  class: losses.centernet.DetectionLoss
+  name: centernet.DetectionLoss
   params:
     hm_weight: 1.0
     off_weight: 1.0
@@ -58,7 +69,7 @@ uda:
 
 evaluation:
   coco:
-    per_class: False
+    per_class: True
 max_detections: 150
 epochs: 100
 batch_size: 16
@@ -67,3 +78,12 @@ seed: 42
 gpus:
   - 0
   - 1
+
+# can be training/total_loss, validation/total_loss or MSCOCO_Precision/mAP
+save_best_metric:
+  name: validation/total_loss
+  mode: min
+
+hydra:
+  run:
+    dir: ./outputs/${experiment}/${now:%Y-%m-%d-%H-%M-%S}

@@ -1,6 +1,12 @@
-import torch
-from models.decode import decode_detection
+import logging
+
+from pathlib import Path
 import numpy as np
+import torch
+
+from models.decode import decode_detection
+
+log = logging.getLogger("uda")
 
 
 class UDA():
@@ -82,7 +88,56 @@ class UDA():
     def criterion(self, outputs, batch):
         raise NotImplementedError
 
-    def log_detections(self, batch, detections, step, tag='validation'):
+    def load_model(self, path, resume=False):
+        path = Path(path)
+        if not path.exists():
+            log.warning(f"Model path {path} does not exists!")
+            return 1
+
+        checkpoint = torch.load(path)
+        epoch = checkpoint["epoch"]
+        state_dict_ = checkpoint['state_dict']
+        state_dict = {}
+
+        # convert data_parallal to model
+        for k in state_dict_:
+            if k.startswith('module') and not k.startswith('module_list'):
+                state_dict[k[7:]] = state_dict_[k]
+            else:
+                state_dict[k] = state_dict_[k]
+
+        model_state_dict = self.model.state_dict()
+
+        for k in state_dict:
+            if k in model_state_dict:
+                if state_dict[k].shape != model_state_dict[k].shape:
+                    log.warning(
+                        f"skip parameter {k} because of shape mismatch")
+                    state_dict[k] = model_state_dict[k]
+            else:
+                log.info(f"drop parameter {k}")
+
+        for k in model_state_dict:
+            if k not in state_dict:
+                log.warning(f"no parameter {k} available")
+                state_dict[k] = model_state_dict[k]
+
+        self.model.load_state_dict(state_dict, strict=False)
+        return epoch if resume else 1
+
+    def save_model(self, path, epoch, with_optimizer=False):
+        state_dict = self.model.state_dict()
+
+        data = {
+            'epoch': epoch,
+            'state_dict': state_dict
+        }
+        if with_optimizer:
+            data["optimizer"] = self.optimizer.state_dict()
+
+        torch.save(data, path)
+
+    def log_detections(self, batch, detections, step, tag):
         images = batch["input"].detach().cpu().numpy()
 
         for i in range(images.shape[0]):
@@ -97,7 +152,5 @@ class UDA():
                  for x in detections['gt_classes'][i]])
             self.summary_writer.add_image(f'{tag}/detections', result, step)
 
-    def log_stats(self, stats, step):
-        for k, v in stats.items():
-            self.summary_writer.add_scalar(k, v.avg, step)
-            v.reset()
+    def log_stat(self, name, value, step):
+        self.summary_writer.add_scalar(name, value, step)
