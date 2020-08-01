@@ -54,7 +54,7 @@ normalize:
 optimizer:
   name: Adam
   params:
-    lr: 0.01
+    lr: 0.0001
 
 centernet_loss:
   name: centernet.DetectionLoss
@@ -70,10 +70,16 @@ uda:
 evaluation:
   coco:
     per_class: True
+
+tensorboard:
+  num_visualizations: 50
+  score_threhsold: 0.3
+
 max_detections: 150
 epochs: 100
 batch_size: 16
-num_workers: 0
+num_workers: 4
+
 seed: 42
 gpus:
   - 0

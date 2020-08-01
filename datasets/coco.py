@@ -1,16 +1,21 @@
-from torch.utils import data
-from pycocotools.coco import COCO
+import logging
 from glob import glob
+from pathlib import Path
+
+import cv2
 import hydra
 import numpy as np
-from omegaconf.listconfig import ListConfig
 from imgaug import augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
+from omegaconf.listconfig import ListConfig
 from PIL import Image
-from utils.image import draw_umich_gaussian as draw_gaussian, gaussian_radius
+from pycocotools.coco import COCO
+from torch.utils import data
 
-import logging
-from pathlib import Path
+from utils.image import draw_umich_gaussian as draw_gaussian
+from utils.image import gaussian_radius
+
+cv2.setNumThreads(0)
 log = logging.getLogger(__name__)
 
 
