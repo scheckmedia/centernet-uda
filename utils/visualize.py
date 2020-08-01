@@ -22,6 +22,9 @@ class Visualizer:
             gt.append(bb)
 
         for i in range(pred_boxes.shape[0]):
+            if pred_scores[i] < self.score_threshold:
+                continue
+
             bb = BoundingBox(*pred_boxes[i])
             bb.label = f"{pred_classes[i]}: {pred_scores[i]:.2f}"
             pred.append(bb)
