@@ -6,7 +6,7 @@ import torch
 
 from models.decode import decode_detection
 
-log = logging.getLogger("uda")
+log = logging.getLogger(__name__)
 
 
 class UDA():
@@ -15,9 +15,6 @@ class UDA():
         self.optimizer = None
         self.centernet_loss = None
         self.device = None
-        self.summary_writer = None
-        self.classes = None
-        self.visualizer = None
 
         super().__init__()
 
@@ -136,21 +133,3 @@ class UDA():
             data["optimizer"] = self.optimizer.state_dict()
 
         torch.save(data, path)
-
-    def log_detections(self, batch, detections, step, tag):
-        images = batch["input"].detach().cpu().numpy()
-
-        for i in range(images.shape[0]):
-            result = self.visualizer.visualize_detections(
-                images[i].transpose(1, 2, 0),
-                detections['pred_boxes'][i],
-                [self.classes[int(x)]['name']
-                 for x in detections['pred_classes'][i]],
-                detections['pred_scores'][i],
-                detections['gt_boxes'][i],
-                [self.classes[int(x)]['name']
-                 for x in detections['gt_classes'][i]])
-            self.summary_writer.add_image(f'{tag}/detections', result, step)
-
-    def log_stat(self, name, value, step):
-        self.summary_writer.add_scalar(name, value, step)

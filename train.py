@@ -6,8 +6,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils.helper import AverageMeter
-from utils.visualize import Visualizer
-from tensorboardX import SummaryWriter
+from utils.tensorboard import TensorboardLogger
 
 log = logging.getLogger("uda")
 torch.backends.cudnn.benchmark = True
@@ -42,7 +41,7 @@ def load_datasets(cfg, down_ratio):
 
 @hydra.main(config_path="configs/defaults.yaml")
 def main(cfg: DictConfig) -> None:
-    writer = SummaryWriter('logs')
+
     torch.manual_seed(cfg.seed)
     device = torch.device('cuda' if len(cfg.gpus) > 0 else 'cpu')
 
@@ -61,20 +60,18 @@ def main(cfg: DictConfig) -> None:
     uda.device = device
     uda.model = model
     uda.optimizer = optimizer
-    uda.summary_writer = writer
     uda.centernet_loss = hydra.utils.get_class(
         f"losses.{cfg.centernet_loss.name}")(
         **cfg.centernet_loss.params)
-    uda.visualizer = Visualizer(0.3, cfg.normalize.mean, cfg.normalize.std)
 
     train_loader, val_loader = load_datasets(cfg, down_ratio=model.down_ratio)
-    uda.classes = val_loader.dataset.classes
+    tensorboardLogger = TensorboardLogger(cfg, val_loader.dataset.classes)
 
     evaluators = []
     for e in cfg.evaluation:
         e = hydra.utils.get_class(
             f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
-        e.classes = uda.classes
+        e.classes = tensorboardLogger.classes
         evaluators.append(e)
 
     start_epoch = 1
@@ -122,7 +119,8 @@ def main(cfg: DictConfig) -> None:
                 for e in evaluators:
                     e.add_batch(**detections)
 
-                uda.log_detections(data, detections, epoch, tag='validation')
+                tensorboardLogger.log_detections(
+                    data, detections, epoch, tag='validation')
 
         for e in evaluators:
             result = e.evaluate()
@@ -131,13 +129,14 @@ def main(cfg: DictConfig) -> None:
         scalars = {}
         for k, s in stats.items():
             if isinstance(s, AverageMeter):
-                uda.log_stat(k, s.avg, epoch)
                 scalars[k] = s.avg
                 s.reset()
             else:
-                uda.log_stat(k, s, epoch)
                 scalars[k] = s
 
+            tensorboardLogger.log_stat(k, scalars[k], epoch)
+
+        tensorboardLogger.reset()
         uda.save_model("model_last.pth", epoch, True)
 
         if not cfg.save_best_metric.name in scalars:
