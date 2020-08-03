@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 class UDA():
     def __init__(self):
+        self.cfg = None
         self.model = None
         self.optimizer = None
         self.centernet_loss = None
@@ -50,7 +51,11 @@ class UDA():
     def get_detections(self, outputs, batch):
         src = outputs["source_domain"]
 
-        dets = decode_detection(src["hm"], src["wh"], src["reg"])
+        dets = decode_detection(
+            src["hm"],
+            src["wh"],
+            src["reg"],
+            K=self.cfg.max_detections)
         dets = dets.detach().cpu().numpy()
         dets[:, :, :4] *= self.model.down_ratio
 

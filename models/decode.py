@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.tensor import _gather_feat, _transpose_and_gather_feat, _sigmoid
+from utils.tensor import _gather_feat, _transpose_and_gather_feat
 
 
 def _nms(heat, kernel=3):
@@ -34,7 +34,7 @@ def _topk(scores, K=40):
 def decode_detection(heat, wh, reg=None, K=100):
     batch, cat, height, width = heat.size()
 
-    heat = torch.sigmoid(heat)
+    # heat = heat.sigmoid_()
     # perform nms on heatmaps
     heat = _nms(heat)
 
