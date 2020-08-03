@@ -8,7 +8,8 @@ class TensorboardLogger:
         self.classes = classes
         self.summary_writer = SummaryWriter('logs')
         self.visualizer = Visualizer(
-            cfg.tensorboard.score_threhsold,
+            classes,
+            cfg.tensorboard.score_threshold,
             cfg.normalize.mean,
             cfg.normalize.std)
         self.num_visualizations = cfg.tensorboard.num_visualizations
@@ -24,12 +25,10 @@ class TensorboardLogger:
             result = self.visualizer.visualize_detections(
                 images[i].transpose(1, 2, 0),
                 detections['pred_boxes'][i],
-                [self.classes[int(x)]['name']
-                 for x in detections['pred_classes'][i]],
+                detections['pred_classes'][i],
                 detections['pred_scores'][i],
                 detections['gt_boxes'][i],
-                [self.classes[int(x)]['name']
-                 for x in detections['gt_classes'][i]])
+                detections['gt_classes'][i])
             self.summary_writer.add_image(
                 f'{tag}/detection_{ids[i]}', result, step)
             self.__num_logged_images += 1
