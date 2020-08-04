@@ -1,0 +1,5 @@
+experiment: entropy_minimization
+model:
+  uda:
+    EntropyMinimization:
+      entropy_weight: 0.0001

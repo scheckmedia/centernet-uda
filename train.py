@@ -20,7 +20,7 @@ def load_datasets(cfg, down_ratio):
                 "std": cfg.normalize.std}
 
     validation = hydra.utils.get_class(
-        f'{cfg.datasets.validation.name}.Dataset')
+        f'datasets.{cfg.datasets.validation.name}.Dataset')
     params = {**cfg.datasets.validation.params, **defaults}
     validation = validation(**params)
     validation_loader = DataLoader(validation, batch_size=cfg.batch_size,
@@ -28,7 +28,8 @@ def load_datasets(cfg, down_ratio):
 
     log.info(f"Found {len(validation)} samples in validation dataset")
 
-    training = hydra.utils.get_class(f'{cfg.datasets.training.name}.Dataset')
+    training = hydra.utils.get_class(
+        f'datasets.{cfg.datasets.training.name}.Dataset')
     params = {**cfg.datasets.training.params, **defaults}
     training = training(**params)
     training_loader = DataLoader(training, batch_size=cfg.batch_size,
