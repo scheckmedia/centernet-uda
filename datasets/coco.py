@@ -25,7 +25,8 @@ class Dataset(data.Dataset):
             target_domain_glob=None, num_classes=80,
             mean=(0.40789654, 0.44719302, 0.47026115),
             std=(0.28863828, 0.27408164, 0.27809835),
-            augmentation=None, max_detections=150, down_ratio=4):
+            augmentation=None, augment_target_domain=False, max_detections=150,
+            down_ratio=4):
         self.image_folder = Path(image_folder)
         self.coco = COCO(annotation_file)
         self.images = self.coco.getImgIds()
@@ -36,6 +37,7 @@ class Dataset(data.Dataset):
         self.std = np.array(std, dtype=np.float32).reshape(1, 1, 3)
         self.augmentation = augmentation
         self.num_classes = num_classes
+        self.augment_target_domain = augment_target_domain
         self.cat_mapping = {v: i for i,
                             v in enumerate(range(1, num_classes + 1))}
         self.classes = {y: self.coco.cats[x]
@@ -156,6 +158,10 @@ class Dataset(data.Dataset):
 
         target_domain_img = np.array(Image.open(
             np.random.choice(self.target_domain_files)).convert("RGB"))
+
+        if self.augmentation is not None and self.augment_target_domain:
+            target_domain_img = self.augmentation(image=target_domain_img)
+
         target_domain_img = self.resize(image=target_domain_img)
         target_domain_img = np.array(
             target_domain_img, dtype=np.float32) / 255.0

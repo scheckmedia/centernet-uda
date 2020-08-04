@@ -4,6 +4,11 @@ model:
     EntropyMinimization:
       entropy_weight: 0.0001
 
+datasets:
+  training:
+    params:
+      augment_target_domain: True
+
 optimizer:
   name: Adam
   params:
