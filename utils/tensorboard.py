@@ -11,7 +11,9 @@ class TensorboardLogger:
             classes,
             cfg.tensorboard.score_threshold,
             cfg.normalize.mean,
-            cfg.normalize.std)
+            cfg.normalize.std,
+            font_size=cfg.tensorboard.font_size,
+            alpha=cfg.tensorboard.alpha)
         self.num_visualizations = cfg.tensorboard.num_visualizations
         self.log_callback = None
         self.__num_logged_images = 0

@@ -71,6 +71,8 @@ evaluation:
 tensorboard:
   num_visualizations: 50
   score_threshold: 0.3
+  font_size: 12
+  alpha: 0.7
 
 max_detections: 150
 epochs: 100
