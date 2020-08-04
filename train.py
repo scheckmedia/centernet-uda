@@ -58,7 +58,7 @@ def main(cfg: DictConfig) -> None:
         uda_cls = hydra.utils.get_class(f"uda.{uda_method}")
         uda = uda_cls(**uda_params) if uda_params else uda_cls()
     else:
-        uda = ""
+        uda = hydra.utils.get_class(f"uda.base.Model")()
     uda.cfg = cfg
     uda.device = device
     uda.backend = backend

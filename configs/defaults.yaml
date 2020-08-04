@@ -22,8 +22,6 @@ model:
         off_weight: 1.0
         wh_weight: 0.1
   uda:
-    EntropyMinimization:
-      entropy_weight: 0.0001
 
 datasets:
   training:

@@ -20,10 +20,34 @@ class Model():
         super().__init__()
 
     def step(self, data, is_training=True):
-        raise NotImplementedError
+        for k in data:
+            data[k] = data[k].to(device=self.device, non_blocking=True)
+
+        if is_training:
+            self.optimizer.zero_grad()
+
+        outputs_source_domain = self.backend(data["input"])
+
+        outputs = {
+            "source_domain": outputs_source_domain
+        }
+        loss, stats = self.criterion(outputs, data)
+
+        if is_training:
+            loss.backward()
+            self.optimizer.step()
+
+        stats["total_loss"] = loss
+
+        for s in stats:
+            stats[s] = stats[s].cpu().detach()
+
+        outputs["stats"] = stats
+
+        return outputs
 
     def criterion(self, outputs, batch):
-        raise NotImplementedError
+        return self.centernet_loss(outputs["source_domain"], batch)
 
     def get_detections(self, outputs, batch):
         src = outputs["source_domain"]
