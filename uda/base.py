@@ -16,6 +16,7 @@ class Model():
         self.optimizer = None
         self.centernet_loss = None
         self.device = None
+        self.scheduler = None
 
         super().__init__()
 
@@ -123,6 +124,13 @@ class Model():
                 state_dict[k] = model_state_dict[k]
 
         self.backend.load_state_dict(state_dict, strict=False)
+
+        if resume and 'optimizer' in checkpoint:
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+
+            if 'scheduler' in checkpoint and self.scheduler is not None:
+                self.scheduler.load_state_dict(checkpoint['scheduler'])
+
         return epoch if resume else 1
 
     def save_model(self, path, epoch, with_optimizer=False):
@@ -135,4 +143,11 @@ class Model():
         if with_optimizer:
             data["optimizer"] = self.optimizer.state_dict()
 
+            if self.scheduler is not None:
+                data["scheduler"] = self.scheduler.state_dict()
+
         torch.save(data, path)
+
+    def epoch_done(self):
+        if self.scheduler is not None:
+            self.scheduler.step()

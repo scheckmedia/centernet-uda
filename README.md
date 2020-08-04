@@ -111,6 +111,11 @@ optimizer:
   name: Adam # optimizer
   params:
     lr: 0.0001 # learning rate
+  scheduler: # None or one of torch.optim.lr_scheduler
+    name: MultiStepLR
+    params:
+      milestones: [20, 40]
+      gamma: 0.1
 
 # which evaluation framework should be used
 # currently only mscoco is implemented but can be extended to pascal voc

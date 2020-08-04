@@ -53,6 +53,15 @@ def main(cfg: DictConfig) -> None:
     optimizer = optimizer(filter(lambda p: p.requires_grad,
                                  backend.parameters()), **cfg.optimizer.params)
 
+    scheduler = None
+    if cfg.optimizer.scheduler is not None:
+        scheduler = hydra.utils.get_class(
+            f"torch.optim.lr_scheduler.{cfg.optimizer.scheduler.name}")
+        scheduler = scheduler(
+            **
+            {**{"optimizer": optimizer},
+             **cfg.optimizer.scheduler.params})
+
     if cfg.model.uda is not None:
         uda_method = list(cfg.model.uda.keys())[0]
         uda_params = cfg.model.uda[uda_method]
@@ -68,15 +77,17 @@ def main(cfg: DictConfig) -> None:
         f"losses.{cfg.model.backend.loss.name}")(
         **cfg.model.backend.loss.params)
 
+    uda.scheduler = scheduler
+
     train_loader, val_loader = load_datasets(
         cfg, down_ratio=backend.down_ratio)
-    tensorboardLogger = TensorboardLogger(cfg, val_loader.dataset.classes)
+    tensorboard_logger = TensorboardLogger(cfg, val_loader.dataset.classes)
 
     evaluators = []
     for e in cfg.evaluation:
         e = hydra.utils.get_class(
             f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
-        e.classes = tensorboardLogger.classes
+        e.classes = tensorboard_logger.classes
         evaluators.append(e)
 
     start_epoch = 1
@@ -124,7 +135,7 @@ def main(cfg: DictConfig) -> None:
                 for e in evaluators:
                     e.add_batch(**detections)
 
-                tensorboardLogger.log_detections(
+                tensorboard_logger.log_detections(
                     data, detections, epoch, tag='validation')
 
         for e in evaluators:
@@ -139,9 +150,10 @@ def main(cfg: DictConfig) -> None:
             else:
                 scalars[k] = s
 
-            tensorboardLogger.log_stat(k, scalars[k], epoch)
+            tensorboard_logger.log_stat(k, scalars[k], epoch)
 
-        tensorboardLogger.reset()
+        uda.epoch_done()
+        tensorboard_logger.reset()
         uda.save_model("model_last.pth", epoch, True)
 
         if not cfg.save_best_metric.name in scalars:
