@@ -20,6 +20,13 @@ class Model():
 
         super().__init__()
 
+    def epoch_start(self):
+        pass
+
+    def epoch_end(self):
+        if self.scheduler is not None:
+            self.scheduler.step()
+
     def step(self, data, is_training=True):
         for k in data:
             data[k] = data[k].to(device=self.device, non_blocking=True)
@@ -147,7 +154,3 @@ class Model():
                 data["scheduler"] = self.scheduler.state_dict()
 
         torch.save(data, path)
-
-    def epoch_done(self):
-        if self.scheduler is not None:
-            self.scheduler.step()

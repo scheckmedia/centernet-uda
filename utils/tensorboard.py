@@ -13,6 +13,7 @@ class TensorboardLogger:
             cfg.normalize.mean,
             cfg.normalize.std)
         self.num_visualizations = cfg.tensorboard.num_visualizations
+        self.log_callback = None
         self.__num_logged_images = 0
 
     def log_detections(self, batch, detections, step, tag):
@@ -38,6 +39,9 @@ class TensorboardLogger:
 
     def log_stat(self, name, value, step):
         self.summary_writer.add_scalar(name, value, step)
+
+    def log_image(self, name, image, step):
+        self.summary_writer.add_image(name, image, step)
 
     def reset(self):
         self.__num_logged_images = 0

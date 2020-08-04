@@ -102,9 +102,9 @@ def main(cfg: DictConfig) -> None:
     for epoch in tqdm(
             range(start_epoch, cfg.epochs + 1),
             position=0, desc='Epoch'):
-        running_loss = 0.0
-        tag = 'training'
+        uda.epoch_start()
 
+        tag = 'training'
         for step, data in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
@@ -152,7 +152,7 @@ def main(cfg: DictConfig) -> None:
 
             tensorboard_logger.log_stat(k, scalars[k], epoch)
 
-        uda.epoch_done()
+        uda.epoch_end()
         tensorboard_logger.reset()
         uda.save_model("model_last.pth", epoch, True)
 
