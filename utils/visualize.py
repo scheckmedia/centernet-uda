@@ -50,7 +50,7 @@ class Visualizer:
             cid = int(pred_classes[i])
             bb = BoundingBox(*pred_boxes[i])
             bb.label = f"{self.classes[int(cid)]['name']}: {pred_scores[i]:.2f}"
-            pred_img = bb.draw_on_image(
+            pred_img = bb.draw_box_on_image(
                 pred_img, self.cmap[cid], self.alpha, 2)
             pred_img = bb.draw_label_on_image(
                 pred_img,
