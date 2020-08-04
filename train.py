@@ -15,7 +15,7 @@ torch.backends.cudnn.benchmark = True
 def load_datasets(cfg, down_ratio):
     defaults = {"max_detections": cfg.max_detections,
                 "down_ratio": down_ratio,
-                "num_classes": cfg.model.params.num_classes,
+                "num_classes": cfg.model.backend.params.num_classes,
                 "mean": cfg.normalize.mean,
                 "std": cfg.normalize.std}
 
@@ -41,31 +41,34 @@ def load_datasets(cfg, down_ratio):
 
 @hydra.main(config_path="configs/defaults.yaml")
 def main(cfg: DictConfig) -> None:
-
     torch.manual_seed(cfg.seed)
-    device = torch.device('cuda' if len(cfg.gpus) > 0 else 'cpu')
+    device = torch.device(f'cuda:{cfg.gpu}' if cfg.gpu is not None else 'cpu')
 
-    model = hydra.utils.get_method(
-        f'{cfg.model.name}.build')(**cfg.model.params)
-    model.to(device)
+    backend = hydra.utils.get_method(
+        f'backends.{cfg.model.backend.name}.build')(**cfg.model.backend.params)
+    backend.to(device)
 
     optimizer = hydra.utils.get_class(f"torch.optim.{cfg.optimizer.name}")
     optimizer = optimizer(filter(lambda p: p.requires_grad,
-                                 model.parameters()), **cfg.optimizer.params)
+                                 backend.parameters()), **cfg.optimizer.params)
 
-    uda_method = list(cfg.uda.keys())[0]
-    uda_params = cfg.uda[uda_method]
-    uda_cls = hydra.utils.get_class(f"uda.{uda_method}")
-    uda = uda_cls(**uda_params) if uda_params else uda_cls()
+    if cfg.model.uda is not None:
+        uda_method = list(cfg.model.uda.keys())[0]
+        uda_params = cfg.model.uda[uda_method]
+        uda_cls = hydra.utils.get_class(f"uda.{uda_method}")
+        uda = uda_cls(**uda_params) if uda_params else uda_cls()
+    else:
+        uda = ""
     uda.cfg = cfg
     uda.device = device
-    uda.model = model
+    uda.backend = backend
     uda.optimizer = optimizer
     uda.centernet_loss = hydra.utils.get_class(
-        f"losses.{cfg.centernet_loss.name}")(
-        **cfg.centernet_loss.params)
+        f"losses.{cfg.model.backend.loss.name}")(
+        **cfg.model.backend.loss.params)
 
-    train_loader, val_loader = load_datasets(cfg, down_ratio=model.down_ratio)
+    train_loader, val_loader = load_datasets(
+        cfg, down_ratio=backend.down_ratio)
     tensorboardLogger = TensorboardLogger(cfg, val_loader.dataset.classes)
 
     evaluators = []

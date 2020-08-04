@@ -4,15 +4,15 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from models.decode import decode_detection
+from backends.decode import decode_detection
 
 log = logging.getLogger(__name__)
 
 
-class UDA():
+class Model():
     def __init__(self):
         self.cfg = None
-        self.model = None
+        self.backend = None
         self.optimizer = None
         self.centernet_loss = None
         self.device = None
@@ -20,33 +20,10 @@ class UDA():
         super().__init__()
 
     def step(self, data, is_training=True):
-        for k in data:
-            data[k] = data[k].to(device=self.device, non_blocking=True)
+        raise NotImplementedError
 
-        if is_training:
-            self.optimizer.zero_grad()
-
-        outputs_source_domain = self.model(data["input"])
-        outputs_target_domain = self.model(data["target_domain_input"])
-
-        outputs = {
-            "source_domain": outputs_source_domain,
-            "target_domain": outputs_target_domain
-        }
-        loss, stats = self.criterion(outputs, data)
-
-        if is_training:
-            loss.backward()
-            self.optimizer.step()
-
-        stats["total_loss"] = loss
-
-        for s in stats:
-            stats[s] = stats[s].cpu().detach()
-
-        outputs["stats"] = stats
-
-        return outputs
+    def criterion(self, outputs, batch):
+        raise NotImplementedError
 
     def get_detections(self, outputs, batch):
         src = outputs["source_domain"]
@@ -57,13 +34,13 @@ class UDA():
             src["reg"],
             K=self.cfg.max_detections)
         dets = dets.detach().cpu().numpy()
-        dets[:, :, :4] *= self.model.down_ratio
+        dets[:, :, :4] *= self.backend.down_ratio
 
         ids = batch["id"].cpu().numpy()
         mask = (batch["reg_mask"].detach().cpu().numpy() == 1).squeeze()
         dets_gt = batch["gt_dets"].cpu().numpy()
         areas_gt = batch["gt_areas"].cpu().numpy()
-        dets_gt[:, :, :4] *= self.model.down_ratio
+        dets_gt[:, :, :4] *= self.backend.down_ratio
 
         gt_boxes = []
         gt_clss = []
@@ -87,9 +64,6 @@ class UDA():
             'gt_areas': gt_areas
         }
 
-    def criterion(self, outputs, batch):
-        raise NotImplementedError
-
     def load_model(self, path, resume=False):
         path = Path(path)
         if not path.exists():
@@ -108,7 +82,7 @@ class UDA():
             else:
                 state_dict[k] = state_dict_[k]
 
-        model_state_dict = self.model.state_dict()
+        model_state_dict = self.backend.state_dict()
 
         for k in state_dict:
             if k in model_state_dict:
@@ -124,11 +98,11 @@ class UDA():
                 log.warning(f"no parameter {k} available")
                 state_dict[k] = model_state_dict[k]
 
-        self.model.load_state_dict(state_dict, strict=False)
+        self.backend.load_state_dict(state_dict, strict=False)
         return epoch if resume else 1
 
     def save_model(self, path, epoch, with_optimizer=False):
-        state_dict = self.model.state_dict()
+        state_dict = self.backend.state_dict()
 
         data = {
             'epoch': epoch,

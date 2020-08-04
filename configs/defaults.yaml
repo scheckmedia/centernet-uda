@@ -10,10 +10,20 @@ pretrained: /mnt/data/Projects/centernet-uda/weights/coco_dla_2x.pth
 resume:
 
 model:
-  name: models.dla
-  params:
-    num_layers: 34
-    num_classes: 6
+  backend:
+    name: dla
+    params:
+      num_layers: 34
+      num_classes: 6
+    loss:
+      name: centernet.DetectionLoss
+      params:
+        hm_weight: 1.0
+        off_weight: 1.0
+        wh_weight: 0.1
+  uda:
+    EntropyMinimization:
+      entropy_weight: 0.0001
 
 datasets:
   training:
@@ -55,17 +65,6 @@ optimizer:
   params:
     lr: 0.0001
 
-centernet_loss:
-  name: centernet.DetectionLoss
-  params:
-    hm_weight: 1.0
-    off_weight: 1.0
-    wh_weight: 0.1
-
-uda:
-  EntropyMinimization:
-    entropy_weight: 0.001
-
 evaluation:
   coco:
     per_class: True
@@ -80,9 +79,7 @@ batch_size: 16
 num_workers: 4
 
 seed: 42
-gpus:
-  - 0
-  - 1
+gpu: 0
 
 # can be training/total_loss, validation/total_loss or MSCOCO_Precision/mAP
 save_best_metric:
@@ -91,4 +88,5 @@ save_best_metric:
 
 hydra:
   run:
-    dir: ./outputs/${experiment}/${now:%Y-%m-%d-%H-%M-%S}
+    # dir: ./outputs/${experiment}/${now:%Y-%m-%d-%H-%M-%S}
+    dir: ./outputs/${experiment}/
