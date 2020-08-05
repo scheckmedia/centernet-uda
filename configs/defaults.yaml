@@ -81,7 +81,7 @@ tensorboard:
 
 max_detections: 150
 epochs: 100
-batch_size: 24
+batch_size: 16
 num_workers: 4
 
 seed: 42

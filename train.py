@@ -94,7 +94,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.pretrained is not None and cfg.resume is None:
         start_epoch = uda.load_model(cfg.pretrained)
     elif cfg.resume is not None:
-        start_epoch = uda.load_model(cfg.pretrained, True)
+        start_epoch = uda.load_model(cfg.resume, True)
 
     stats = {}
     best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10

@@ -1,4 +1,5 @@
 experiment: entropy_minimization
+resume: /mnt/data/Projects/centernet-uda/outputs/entropy_minimization/model_last.pth
 model:
   uda:
     EntropyMinimization:
