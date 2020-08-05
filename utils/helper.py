@@ -1,6 +1,10 @@
 import sys
-
+import hydra
 import torch
+from omegaconf.listconfig import ListConfig
+import logging
+
+log = logging.getLogger(__name__)
 
 # https://github.com/pytorch/examples/blob/8df8e747857261ea481e0b2492413d52bf7cc3a8/imagenet/main.py#L363
 
@@ -43,3 +47,24 @@ class RedirectOut():
     def __exit__(self, type, value, traceback):
         sys.stdout = self.original
         self.__fd.close()
+
+
+def instantiate_augmenters(augmentation_list):
+    augmentation_methods = []
+    for augmentation in augmentation_list:
+        method = list(augmentation)[0]
+        params = dict(augmentation[method])
+
+        if method == 'Sometimes':
+            params["then_list"] = instantiate_augmenters(params["then_list"])
+
+        for k, v in params.items():
+            if isinstance(v, (list, ListConfig)):
+                params[k] = tuple(v)
+        m = hydra.utils.get_method(
+            f"imgaug.augmenters.{method}")(**params)
+        augmentation_methods.append(m)
+
+        log.debug(
+            f"Register imgaug.augmenters.{method} as augmentation method")
+    return augmentation_methods

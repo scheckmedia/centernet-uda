@@ -2,20 +2,23 @@ experiment: entropy_minimization
 model:
   uda:
     EntropyMinimization:
-      entropy_weight: 0.0001
+      entropy_weight: 0.001
 
 datasets:
   training:
     params:
       augment_target_domain: True
+  validation:
+    params:
+      input_size: [1280, 1280]
 
 optimizer:
   name: Adam
   params:
-    lr: 0.00005
-    weight_decay: 0.001
+    lr: 0.0005
+    weight_decay: 0.0001
   scheduler:
     name: MultiStepLR
     params:
-      milestones: [20, 40]
+      milestones: [10, 30]
       gamma: 0.1

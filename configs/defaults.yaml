@@ -33,14 +33,19 @@ datasets:
         - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
         - /mnt/data/datasets/CEPDOF/**/*.jpg
       augmentation:
-        - GammaContrast:
-            gamma: [0.2, 1.5]
-        - Affine:
-            translate_percent: [-0.2, 0.2]
-            scale: [0.8, 1.3]
-            rotate: [-45, 45]
-        - AdditiveGaussianNoise:
-            scale: [0, 10]
+        - Sometimes:
+            then_list:
+              - GammaContrast:
+                  gamma: [0.2, 1.5]
+              - MotionBlur:
+                  k: [3, 10]
+                  angle: [-45, 45]
+              - Affine:
+                  translate_percent: [-0.2, 0.2]
+                  scale: [0.8, 1.3]
+                  rotate: [-45, 45]
+              - AdditiveGaussianNoise:
+                  scale: [0, 10]
         - Fliplr:
             p: 0.5
         - Flipud:

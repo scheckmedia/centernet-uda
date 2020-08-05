@@ -12,6 +12,7 @@ from PIL import Image
 from pycocotools.coco import COCO
 from torch.utils import data
 
+from utils.helper import instantiate_augmenters
 from utils.image import draw_umich_gaussian as draw_gaussian
 from utils.image import gaussian_radius
 
@@ -52,21 +53,7 @@ class Dataset(data.Dataset):
                 self.target_domain_files.extend(glob(pattern))
 
         if self.augmentation:
-            augmentation_methods = []
-            for augment in augmentation:
-                method = list(augment)[0]
-                params = dict(augment[method])
-
-                for k, v in params.items():
-                    if isinstance(v, (list, ListConfig)):
-                        params[k] = tuple(v)
-                m = hydra.utils.get_method(
-                    f"imgaug.augmenters.{method}")(**params)
-                augmentation_methods.append(m)
-
-                log.debug(
-                    f"Register imgaug.augmenters.{method} as augmentation method")
-
+            augmentation_methods = instantiate_augmenters(augmentation)
             self.augmentation = iaa.Sequential(augmentation_methods)
 
         self.resize = iaa.Resize((self.input_size[0], self.input_size[1]))
