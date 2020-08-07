@@ -51,6 +51,8 @@ class Dataset(data.Dataset):
             self.target_domain_files = []
             for pattern in target_domain_glob:
                 self.target_domain_files.extend(glob(pattern))
+        else:
+            self.target_domain_files = []
 
         if self.augmentation:
             augmentation_methods = instantiate_augmenters(augmentation)
@@ -143,25 +145,12 @@ class Dataset(data.Dataset):
         del bbs_aug
         del img_aug
 
-        target_domain_img = np.array(Image.open(
-            np.random.choice(self.target_domain_files)).convert("RGB"))
-
-        if self.augmentation is not None and self.augment_target_domain:
-            target_domain_img = self.augmentation(image=target_domain_img)
-
-        target_domain_img = self.resize(image=target_domain_img)
-        target_domain_img = np.array(
-            target_domain_img, dtype=np.float32) / 255.0
-        target_domain_img = (target_domain_img - self.mean) / self.std
-        target_domain_img = target_domain_img.transpose(2, 0, 1)
-
         gt_det = np.array(gt_det, dtype=np.float32) if len(
             gt_det) > 0 else np.zeros((1, 6), dtype=np.float32)
 
         ret = {
             'input': inp,
             'hm': hm,
-            'target_domain_input': target_domain_img,
             'reg_mask': reg_mask,
             'ind': ind,
             'wh': wh,
@@ -170,6 +159,21 @@ class Dataset(data.Dataset):
             'gt_areas': gt_areas,
             'id': img_id
         }
+
+        if len(self.target_domain_files):
+            target_domain_img = np.array(Image.open(
+                np.random.choice(self.target_domain_files)).convert("RGB"))
+
+            if self.augmentation is not None and self.augment_target_domain:
+                target_domain_img = self.augmentation(image=target_domain_img)
+
+            target_domain_img = self.resize(image=target_domain_img)
+            target_domain_img = np.array(
+                target_domain_img, dtype=np.float32) / 255.0
+            target_domain_img = (target_domain_img - self.mean) / self.std
+            target_domain_img = target_domain_img.transpose(2, 0, 1)
+
+            ret['target_domain_input'] = target_domain_img
 
         return ret
 
