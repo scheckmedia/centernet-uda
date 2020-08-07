@@ -34,12 +34,15 @@ datasets:
         - /mnt/data/datasets/CEPDOF/**/*.jpg
       augmentation:
         - Sometimes:
+            p: 0.8
             then_list:
               - GammaContrast:
                   gamma: [0.2, 1.5]
               - MotionBlur:
                   k: [3, 10]
                   angle: [-45, 45]
+              - Crop:
+                  percent: [0.0, 0.3]
               - Affine:
                   translate_percent: [-0.2, 0.2]
                   scale: [0.8, 1.3]
