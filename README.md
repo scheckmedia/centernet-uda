@@ -3,7 +3,14 @@ This repository holds a small framework to evaluate unsupervised domain adaptati
 a CenterNet object detection network.
 
 ## Implemented UDA Methods
-- Direct Entropy minimization of [ADVENT](https://arxiv.org/abs/1811.12833)
+- [ADVENT](https://arxiv.org/abs/1811.12833)
+  - [x] Direct Entropy minimization
+  - [ ] Minimizing entropy with adversarial learning (RP)
+- [Domain Adaptation for Semantic Segmentation with Maximum Squares Loss](https://arxiv.org/abs/1909.13589)
+  - [x] Max Squares minimization
+  - [ ] Image-wise Class-balanced Weighting Factor (MT I)
+  - [ ] Multi-level Self-produced guidance (MT I)
+- [ ] [FDA](https://arxiv.org/abs/2004.05498) (MT I)
 
 ## Usage
 This implementation uses [hydra](https://github.com/facebookresearch/hydra) as configuration framework.

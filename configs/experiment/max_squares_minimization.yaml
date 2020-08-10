@@ -1,9 +1,8 @@
-experiment: entropy_minimization_lr_0.00005
-# resume: /mnt/data/Projects/centernet-uda/outputs/entropy_minimization/model_last.pth
+experiment: max_squares_minimization_lr_0.00005
 model:
   uda:
-    EntropyMinimization:
-      entropy_weight: 0.0001
+    MaxSquaresMinimization:
+      max_squares_weight: 0.3
 
 datasets:
   training:

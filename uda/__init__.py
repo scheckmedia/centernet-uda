@@ -1,1 +1,2 @@
 from uda.entropy_minimization import EntropyMinimization
+from uda.max_squares_minimization import MaxSquaresMinimization
