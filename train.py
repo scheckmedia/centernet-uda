@@ -1,10 +1,12 @@
 import logging
+import os
 
 import hydra
 import torch
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from utils.helper import AverageMeter
 from utils.tensorboard import TensorboardLogger
 
@@ -43,7 +45,8 @@ def load_datasets(cfg, down_ratio):
 @hydra.main(config_path="configs/defaults.yaml")
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
-    device = torch.device(f'cuda:{cfg.gpu}' if cfg.gpu is not None else 'cpu')
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu)
+    device = torch.device(f'cuda' if cfg.gpu is not None else 'cpu')
 
     backend = hydra.utils.get_method(
         f'backends.{cfg.model.backend.name}.build')(**cfg.model.backend.params)
