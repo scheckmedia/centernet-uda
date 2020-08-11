@@ -5,17 +5,19 @@ from losses.max_square import MaxSquareLoss
 class MaxSquaresMinimization(Model):
     def __init__(self, max_squares_weight):
         super().__init__()
-        self.entropy_loss = MaxSquareLoss()
+        self.max_squares_loss = MaxSquareLoss()
         self.max_squares_weight = max_squares_weight
 
     def criterion(self, outputs, batch):
-        c_loss, c_stats = self.centernet_loss(outputs["source_domain"], batch)
-        e_loss, e_stats = self.entropy_loss(outputs["target_domain"], batch)
+        s_loss, s_stats = self.centernet_loss(outputs["source_domain"], batch)
+        t_loss, t_stats = self.max_squares_loss(
+            outputs["target_domain"], batch)
+        t_loss *= self.max_squares_weight
 
-        loss = c_loss + e_loss * self.max_squares_weight
-        stats = {**c_stats, **e_stats}
+        # loss = c_loss + e_loss * self.max_squares_weight
+        stats = {**s_stats, **t_stats}
 
-        return loss, stats
+        return s_loss, t_loss, stats
 
     def step(self, data, is_training=True):
         for k in data:
@@ -31,13 +33,14 @@ class MaxSquaresMinimization(Model):
             "source_domain": outputs_source_domain,
             "target_domain": outputs_target_domain
         }
-        loss, stats = self.criterion(outputs, data)
+        s_loss, t_loss, stats = self.criterion(outputs, data)
 
         if is_training:
-            loss.backward()
+            s_loss.backward()
+            t_loss.backward()
             self.optimizer.step()
 
-        stats["total_loss"] = loss
+        stats["total_loss"] = s_loss + t_loss
 
         for s in stats:
             stats[s] = stats[s].cpu().detach()
