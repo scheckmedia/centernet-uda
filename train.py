@@ -26,7 +26,7 @@ def load_datasets(cfg, down_ratio):
     params = {**cfg.datasets.validation.params, **defaults}
     validation = validation(**params)
     validation_loader = DataLoader(validation, batch_size=cfg.batch_size,
-                                   shuffle=False, num_workers=cfg.num_workers)
+                                   shuffle=False, num_workers=cfg.num_workers, pin_memory=True)
 
     log.info(f"Found {len(validation)} samples in validation dataset")
 
@@ -35,7 +35,7 @@ def load_datasets(cfg, down_ratio):
     params = {**cfg.datasets.training.params, **defaults}
     training = training(**params)
     training_loader = DataLoader(training, batch_size=cfg.batch_size,
-                                 shuffle=True, num_workers=cfg.num_workers)
+                                 shuffle=True, num_workers=cfg.num_workers, pin_memory=True)
 
     log.info(f"Found {len(training)} samples in training dataset")
 
