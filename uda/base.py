@@ -133,14 +133,14 @@ class Model():
         self.backend.load_state_dict(state_dict, strict=False)
 
         if resume and 'optimizer' in checkpoint:
-            log.info("restore optimizer state")
+            log.info(f"restore optimizer state at epoch {epoch}")
             self.optimizer.load_state_dict(checkpoint['optimizer'])
 
             if 'scheduler' in checkpoint and self.scheduler is not None:
                 log.info("restore scheduler state")
                 self.scheduler.load_state_dict(checkpoint['scheduler'])
 
-        return epoch + 1 if resume else 1
+        return (epoch + 1) if resume else 1
 
     def save_model(self, path, epoch, with_optimizer=False):
         state_dict = self.backend.state_dict()

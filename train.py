@@ -102,8 +102,10 @@ def main(cfg: DictConfig) -> None:
     stats = {}
     best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
 
+
     for epoch in tqdm(
             range(start_epoch, cfg.epochs + 1),
+	    initial=start_epoch,
             position=0, desc='Epoch'):
         uda.epoch_start()
 
