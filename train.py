@@ -25,8 +25,12 @@ def load_datasets(cfg, down_ratio):
         f'datasets.{cfg.datasets.validation.name}.Dataset')
     params = {**cfg.datasets.validation.params, **defaults}
     validation = validation(**params)
-    validation_loader = DataLoader(validation, batch_size=cfg.batch_size,
-                                   shuffle=False, num_workers=cfg.num_workers, pin_memory=True)
+    validation_loader = DataLoader(
+        validation,
+        batch_size=cfg.batch_size,
+        shuffle=False,
+        num_workers=cfg.num_workers,
+        pin_memory=True)
 
     log.info(f"Found {len(validation)} samples in validation dataset")
 
@@ -34,8 +38,12 @@ def load_datasets(cfg, down_ratio):
         f'datasets.{cfg.datasets.training.name}.Dataset')
     params = {**cfg.datasets.training.params, **defaults}
     training = training(**params)
-    training_loader = DataLoader(training, batch_size=cfg.batch_size,
-                                 shuffle=True, num_workers=cfg.num_workers, pin_memory=True)
+    training_loader = DataLoader(
+        training,
+        batch_size=cfg.batch_size,
+        shuffle=True,
+        num_workers=cfg.num_workers,
+        pin_memory=True)
 
     log.info(f"Found {len(training)} samples in training dataset")
 
@@ -102,13 +110,12 @@ def main(cfg: DictConfig) -> None:
     stats = {}
     best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
 
-
     for epoch in tqdm(
             range(start_epoch, cfg.epochs + 1),
-	    initial=start_epoch,
+            initial=start_epoch,
             position=0, desc='Epoch'):
         uda.epoch_start()
-
+        uda.backend.train()
         tag = 'training'
         for step, data in tqdm(
                 enumerate(train_loader),
@@ -123,6 +130,7 @@ def main(cfg: DictConfig) -> None:
                 stats[log_key] = m
 
         tag = 'validation'
+        uda.backend.eval()
         with torch.no_grad():
             for step, data in tqdm(
                     enumerate(val_loader),
