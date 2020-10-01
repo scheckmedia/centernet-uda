@@ -443,10 +443,11 @@ class Interpolate(nn.Module):
 
 class DLASeg(nn.Module):
     def __init__(self, base_name, heads, pretrained, down_ratio, final_kernel,
-                 last_level, head_conv, out_channel=0, freeze_base=False):
+                 last_level, head_conv, out_channel=0, freeze_base=False, rotated_boxes=False):
         super(DLASeg, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
         self.down_ratio = down_ratio
+        self.rotated_boxes = rotated_boxes
         self.first_level = int(np.log2(down_ratio))
         self.last_level = last_level
         self.base = globals()[base_name](pretrained=pretrained)
@@ -508,10 +509,10 @@ class DLASeg(nn.Module):
 
 
 def build(num_layers, num_classes, head_conv=256,
-          down_ratio=4, freeze_base=False):
+          down_ratio=4, freeze_base=False, rotated_boxes=False):
     heads = {
         'hm': num_classes,
-        'wh': 2,
+        'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
     return DLASeg(f'dla{num_layers}', heads,
@@ -520,4 +521,5 @@ def build(num_layers, num_classes, head_conv=256,
                   final_kernel=1,
                   last_level=5,
                   head_conv=head_conv,
-                  freeze_base=freeze_base)
+                  freeze_base=freeze_base,
+                  rotated_boxes=rotated_boxes)

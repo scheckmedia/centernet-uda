@@ -14,9 +14,10 @@ log = logging.getLogger("uda")
 torch.backends.cudnn.benchmark = True
 
 
-def load_datasets(cfg, down_ratio):
+def load_datasets(cfg, down_ratio, rotated_boxes):
     defaults = {"max_detections": cfg.max_detections,
                 "down_ratio": down_ratio,
+                "rotated_boxes": rotated_boxes,
                 "num_classes": cfg.model.backend.params.num_classes,
                 "mean": cfg.normalize.mean,
                 "std": cfg.normalize.std}
@@ -91,7 +92,7 @@ def main(cfg: DictConfig) -> None:
     uda.scheduler = scheduler
 
     train_loader, val_loader = load_datasets(
-        cfg, down_ratio=backend.down_ratio)
+        cfg, down_ratio=backend.down_ratio, rotated_boxes=backend.rotated_boxes)
     tensorboard_logger = TensorboardLogger(cfg, val_loader.dataset.classes)
 
     evaluators = []
@@ -99,6 +100,7 @@ def main(cfg: DictConfig) -> None:
         e = hydra.utils.get_class(
             f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
         e.classes = tensorboard_logger.classes
+        e.use_rotated_boxes = cfg.model.backend.params.rotated_boxes
         evaluators.append(e)
 
     start_epoch = 1
@@ -145,6 +147,7 @@ def main(cfg: DictConfig) -> None:
                     stats[log_key] = m
 
                 detections = uda.get_detections(outputs, data)
+                detections["image_shape"] = data["input"].shape[1:]
                 for e in evaluators:
                     e.add_batch(**detections)
 

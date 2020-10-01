@@ -15,6 +15,7 @@ model:
     params:
       num_layers: 34
       num_classes: 6
+      rotated_boxes: False
     loss:
       name: centernet.DetectionLoss
       params:
@@ -27,28 +28,32 @@ datasets:
   training:
     name: coco
     params:
-      image_folder: /mnt/data/datasets/theodore_plus/images/
-      annotation_file: /mnt/data/datasets/theodore_plus/coco/annotations/instances.json
+      image_folder: /mnt/datasets_ssd/theodore_plus/images/
+      annotation_file: /mnt/datasets_ssd/theodore_plus/coco/annotations/instances.json
       target_domain_glob:
-        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
-        - /mnt/data/datasets/CEPDOF/**/*.jpg
+        - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/datasets_ssd/CEPDOF/**/*.jpg
       augmentation:
         - Sometimes:
             p: 0.8
             then_list:
+              # - Cutout:
+              #     nb_iterations: [1, 5]
+              #     size: [0.01, 0.2]
+              #     squared: False
               - AddToHue:
                   value: [-128, 128]
               - AddToBrightness:
                   add: [-100, 100]
               - MotionBlur:
                   k: [3, 10]
-                  angle: [-45, 45]
-              - Crop:
-                  percent: [0.0, 0.3]
+                  angle: [-90, 90]
               - Affine:
                   translate_percent: [-0.2, 0.2]
                   scale: [0.8, 1.3]
                   rotate: [-45, 45]
+              - Crop:
+                  percent: [0.0, 0.3]
               - AdditiveGaussianNoise:
                   scale: [0, 8]
         - Fliplr:
@@ -62,8 +67,8 @@ datasets:
       image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
       annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_training.json
       target_domain_glob:
-        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
-        - /mnt/data/datasets/CEPDOF/**/*.jpg
+        - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/datasets_ssd/CEPDOF/**/*.jpg
 normalize:
   mean: [0.40789654, 0.44719302, 0.47026115]
   std: [0.28863828, 0.27408164, 0.27809835]

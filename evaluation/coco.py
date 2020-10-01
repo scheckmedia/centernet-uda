@@ -6,10 +6,13 @@ import os
 
 import numpy as np
 from utils.helper import RedirectOut
+from utils.box import rotate_bbox
+import cv2
 
 try:
     import pycocotools.coco
     import pycocotools.cocoeval
+    import pycocotools.mask as mask_tools
     _available = True
 except ImportError:
     _available = False
@@ -65,6 +68,7 @@ class Evaluator():
                 '#egg=pycocotools&subdirectory=PythonAPI\'')
         self.per_class = per_class
         self.classes = None
+        self.use_rotated_boxes = False
         self.gt_coco = pycocotools.coco.COCO()
         self.pred_coco = pycocotools.coco.COCO()
         self.ids = []
@@ -73,8 +77,8 @@ class Evaluator():
         self.existent_labels = {}
         self.__id_counter = 0
 
-    def add_batch(self, pred_boxes, pred_classes,
-                  pred_scores, gt_boxes, gt_classes, gt_ids, gt_areas):
+    def add_batch(self, pred_boxes, pred_classes, pred_scores,
+                  gt_boxes, gt_classes, gt_ids, gt_areas, image_shape):
         self.__convert_to_coco(
             pred_boxes,
             pred_classes,
@@ -82,7 +86,9 @@ class Evaluator():
             gt_boxes,
             gt_classes,
             gt_ids,
-            gt_areas)
+            gt_areas,
+            None,
+            image_shape)
 
     def evaluate(self):
         existent_labels = sorted(self.existent_labels.keys())
@@ -99,7 +105,8 @@ class Evaluator():
             self.pred_coco.createIndex()
             self.gt_coco.createIndex()
             self.coco_eval = pycocotools.cocoeval.COCOeval(
-                self.gt_coco, self.pred_coco, 'bbox')
+                self.gt_coco, self.pred_coco, 'segm'
+                if self.use_rotated_boxes else 'bbox')
             self.coco_eval.evaluate()
             self.coco_eval.accumulate()
 
@@ -205,8 +212,8 @@ class Evaluator():
         return results
 
     def __convert_to_coco(
-        self, pred_bboxes, pred_labels, pred_scores,
-            gt_bboxes, gt_classes, gt_ids, gt_areas, gt_crowdeds=None):
+            self, pred_bboxes, pred_labels, pred_scores, gt_bboxes, gt_classes,
+            gt_ids, gt_areas, gt_crowdeds=None, image_shape=(3, 512, 512)):
         pred_bboxes = iter(pred_bboxes)
         pred_labels = iter(pred_labels)
         pred_scores = iter(pred_scores)
@@ -236,46 +243,78 @@ class Evaluator():
             for pred_bb, pred_lb, pred_sc in zip(pred_bbox, pred_label,
                                                  pred_score):
                 self.pred_annos.append(
-                    self.__create_anno(pred_bb, pred_lb, pred_sc,
-                                       img_id=image_id, anno_id=len(
-                                           self.pred_annos) + 1,
-                                       crw=0, ar=None))
+                    self.__create_anno(
+                        pred_bb,
+                        pred_lb,
+                        pred_sc,
+                        img_id=image_id,
+                        anno_id=len(
+                            self.pred_annos) + 1,
+                        crw=0,
+                        ar=None,
+                        image_shape=image_shape))
                 self.existent_labels[pred_lb] = True
 
             for gt_bb, gt_lb, gt_ar, gt_crw in zip(
                     gt_bbox, gt_label, gt_area, gt_crowded):
                 self.gt_annos.append(
-                    self.__create_anno(gt_bb, gt_lb, None,
-                                       img_id=image_id, anno_id=len(
-                                           self.gt_annos) + 1,
-                                       ar=gt_ar, crw=gt_crw))
+                    self.__create_anno(
+                        gt_bb,
+                        gt_lb,
+                        None,
+                        img_id=image_id,
+                        anno_id=len(
+                            self.gt_annos) + 1,
+                        ar=gt_ar,
+                        crw=gt_crw,
+                        image_shape=image_shape))
                 self.existent_labels[gt_lb] = True
 
-            self.ids.append({'id': image_id})
+            self.ids.append(
+                {'id': image_id, 'width': image_shape[2],
+                 'height': image_shape[1]})
 
-    def __create_anno(self, bb, lb, sc, img_id, anno_id, ar=None, crw=None):
-        x_min = bb[0]
-        y_min = bb[1]
-        x_max = bb[2]
-        y_max = bb[3]
-        height = y_max - y_min
-        width = x_max - x_min
-        if ar is None:
-            # We compute dummy area to pass to pycocotools.
-            # Note that area dependent scores are ignored afterwards.
-            ar = height * width
+    def __create_anno(self, bb, lb, sc, img_id, anno_id,
+                      ar=None, crw=None, image_shape=(3, 512, 512)):
         if crw is None:
             crw = False
-        # Rounding is done to make the result consistent with COCO.
-        anno = {
-            'image_id': img_id, 'category_id': lb,
-            'bbox': [np.round(x_min, 2), np.round(y_min, 2),
-                     np.round(width, 2), np.round(height, 2)],
-            'segmentation': [x_min, y_min, x_min, y_max,
-                             x_max, y_max, x_max, y_min],
-            'area': ar,
-            'id': anno_id,
-            'iscrowd': crw}
+
+        if self.use_rotated_boxes:
+            mask = np.zeros((image_shape[1:]))
+            rot_pts = np.array(rotate_bbox(*bb))
+            cv2.fillPoly(mask, [rot_pts.reshape(1, -1, 2)], color=(255,))
+            mask = np.asfortranarray(mask.astype(np.uint8))
+            rle = mask_tools.encode(mask)
+            ar = mask_tools.area(rle)
+            anno = {
+                'image_id': img_id, 'category_id': lb,
+                'segmentation': rle,
+                'area': ar,
+                'id': anno_id,
+                'iscrowd': crw}
+        else:
+            x_min = bb[0]
+            y_min = bb[1]
+            x_max = bb[2]
+            y_max = bb[3]
+            height = y_max - y_min
+            width = x_max - x_min
+            if ar is None:
+                # We compute dummy area to pass to pycocotools.
+                # Note that area dependent scores are ignored afterwards.
+                ar = height * width
+
+            # Rounding is done to make the result consistent with COCO.
+            anno = {
+                'image_id': img_id, 'category_id': lb,
+                'bbox': [np.round(x_min, 2), np.round(y_min, 2),
+                         np.round(width, 2), np.round(height, 2)],
+                'segmentation': [x_min, y_min, x_min, y_max,
+                                 x_max, y_max, x_max, y_min],
+                'area': ar,
+                'id': anno_id,
+                'iscrowd': crw}
+
         if sc is not None:
             anno.update({'score': sc})
         return anno

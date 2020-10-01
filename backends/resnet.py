@@ -12,7 +12,7 @@ RESNET_MODELS = {
 }
 
 class CenterResNet(nn.Module):
-    def __init__(self, num_layers, heads, pretrained, freeze_base=False):
+    def __init__(self, num_layers, heads, pretrained, freeze_base=False, rotated_boxes=False):
         super(CenterResNet, self).__init__()
 
         base_name = f'resnet{num_layers}'
@@ -21,6 +21,7 @@ class CenterResNet(nn.Module):
         self.inplanes = RESNET_MODELS[num_layers]
         self.deconv_with_bias = False
         self.down_ratio = 4
+        self.rotated_boxes = rotated_boxes
         resnet = torch.hub.load('pytorch/vision:v0.6.0', base_name, pretrained=pretrained)
         # skip remove pooling and fc layer from resnet
         self.base = torch.nn.Sequential(*(list(resnet.children())[:-2]))
@@ -95,15 +96,16 @@ class CenterResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-def build(num_layers, num_classes, pretrained=True, freeze_base=False):
+def build(num_layers, num_classes, pretrained=True, freeze_base=False, rotated_boxes=False):
 
     assert num_layers in RESNET_MODELS.keys()
 
     heads = {
         'hm': num_classes,
-        'wh': 2,
+        'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
     return CenterResNet(num_layers, heads,
                   pretrained=pretrained,
-                  freeze_base=freeze_base)
+                  freeze_base=freeze_base,
+                  rotated_boxes=rotated_boxes)

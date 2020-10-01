@@ -1,4 +1,4 @@
-experiment: entropy_minimization_lr_0.00005
+experiment: entropy_minimization_dla
 # resume: /mnt/data/Projects/centernet-uda/outputs/entropy_minimization/model_last.pth
 model:
   uda:
@@ -8,6 +8,8 @@ model:
 datasets:
   training:
     params:
+      image_folder: /mnt/datasets_ssd/theodore_paper_25k_coco/images/
+      annotation_file: /mnt/datasets_ssd/theodore_paper_25k_coco/annotations/instances.json
       augment_target_domain: True
   validation:
     params:
@@ -24,3 +26,4 @@ optimizer:
     params:
       milestones: [30, 60]
       gamma: 0.1
+batch_size: 8

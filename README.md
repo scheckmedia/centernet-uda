@@ -75,7 +75,7 @@ datasets:
       image_folder: /mnt/data/datasets/theodore_plus/images/
       annotation_file: /mnt/data/datasets/theodore_plus/coco/annotations/instances.json
       target_domain_glob:
-        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.jpg
         - /mnt/data/datasets/CEPDOF/**/*.jpg
       # data augmentation is implemented via imgaug
       # valid augmentors and parameters are listed here:
@@ -101,7 +101,7 @@ datasets:
       image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
       annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_training.json
       target_domain_glob:
-        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.jpg
         - /mnt/data/datasets/CEPDOF/**/*.jpg
 
 # parameters to normalize an image, additional to pixel / 255 normalization

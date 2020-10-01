@@ -78,18 +78,26 @@ class Model():
         gt_clss = []
         gt_ids = []
         gt_areas = []
+
+        box_idx = 4
+        cls_idx = 5
+
+        if self.cfg.model.backend.params.rotated_boxes:
+            box_idx = 5
+            cls_idx = 6
+
         for i in range(dets_gt.shape[0]):
             det_gt = dets_gt[i, mask[i]]
 
-            gt_boxes.append(det_gt[:, :4])
-            gt_clss.append(det_gt[:, 5].astype(np.int32))
+            gt_boxes.append(det_gt[:, :box_idx])
+            gt_clss.append(det_gt[:, cls_idx].astype(np.int32))
             gt_ids.append(ids[i])
             gt_areas.append(areas_gt[i, mask[i]])
 
         return {
-            'pred_boxes': dets[:, :, :4],
-            'pred_classes': dets[:, :, 5].astype(np.int32),
-            'pred_scores': dets[:, :, 4],
+            'pred_boxes': dets[:, :, :box_idx],
+            'pred_classes': dets[:, :, cls_idx].astype(np.int32),
+            'pred_scores': dets[:, :, box_idx],
             'gt_boxes': gt_boxes,
             'gt_classes': gt_clss,
             'gt_ids': gt_ids,
@@ -131,6 +139,7 @@ class Model():
                 state_dict[k] = model_state_dict[k]
 
         self.backend.load_state_dict(state_dict, strict=False)
+        log.info(f"restore pretrained weights")
 
         if resume and 'optimizer' in checkpoint:
             log.info(f"restore optimizer state at epoch {epoch}")

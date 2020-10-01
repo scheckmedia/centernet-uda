@@ -48,13 +48,18 @@ def decode_detection(heat, wh, reg=None, K=100):
         xs = xs.view(batch, K, 1) + 0.5
         ys = ys.view(batch, K, 1) + 0.5
     wh = _transpose_and_gather_feat(wh, inds)
-    wh = wh.view(batch, K, 2)
+    wh = wh.view(batch, K, wh.shape[-1])
     clses = clses.view(batch, K, 1).float()
     scores = scores.view(batch, K, 1)
-    bboxes = torch.cat([xs - wh[..., 0:1] / 2,
-                        ys - wh[..., 1:2] / 2,
-                        xs + wh[..., 0:1] / 2,
-                        ys + wh[..., 1:2] / 2], dim=2)
+    if wh.shape[-1] == 2:
+        bboxes = torch.cat([xs - wh[..., 0:1] / 2,
+                            ys - wh[..., 1:2] / 2,
+                            xs + wh[..., 0:1] / 2,
+                            ys + wh[..., 1:2] / 2], dim=2)
+    else:
+        bboxes = torch.cat([
+            xs, ys, wh[..., 0:1], wh[..., 1:2], wh[..., 2:3]
+        ], dim=2)
     detections = torch.cat([bboxes, scores, clses], dim=2)
 
     return detections
