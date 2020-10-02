@@ -172,7 +172,7 @@ class Dataset(data.Dataset):
         del img_aug
 
         gt_det = np.array(gt_det, dtype=np.float32) if len(
-            gt_det) > 0 else np.zeros((1, self.num_classes), dtype=np.float32)
+            gt_det) > 0 else np.zeros((1, 6), dtype=np.float32)
 
         ret = {
             'input': inp,
@@ -201,7 +201,7 @@ class Dataset(data.Dataset):
         else:
             img_aug, kpts_aug = np.copy(img), kpts.copy()
 
-        img_aug, kpts_aug = self.resize(image=img_aug, keypoints=kpts)
+        img_aug, kpts_aug = self.resize(image=img_aug, keypoints=kpts_aug)
 
         img = (img_aug.astype(np.float32) / 255.)
         inp = (img - self.mean) / self.std
@@ -223,18 +223,21 @@ class Dataset(data.Dataset):
             dtype=np.float32)
         gt_areas = np.zeros((self.max_detections), dtype=np.float32)
 
-        kpts_aug = self.resize_out(keypoints=kpts)
+        kpts_aug = self.resize_out(keypoints=kpts_aug)
         assert num_objs == len(kpts_aug) // 4
 
         for k in range(num_objs):
             ann = anns[k]
-            points = [list((k.x, k.y)) for k in kpts_aug[k * 4: k * 4 + 4]]
+            points = []
+            for p in kpts_aug[k * 4: k * 4 + 4]:
+                kp = list((np.clip(p.x, 0, output_w - 1),
+                           np.clip(p.y, 0, output_h - 1)))
+                points.append(kp)
+
             points = np.array(points)
+
             # restore angle from augmented points
             delta = points[1] - points[0]
-            angle = np.degrees(np.arctan2(delta[1], delta[0]))
-            if angle >= 90:
-                angle -= 180
 
             w = np.sqrt(((points[1] - points[0]) ** 2).sum())
             h = np.sqrt(((points[3] - points[0]) ** 2).sum())
@@ -243,6 +246,10 @@ class Dataset(data.Dataset):
             cls_id = int(self.cat_mapping[ann['category_id']])
 
             if h > 0 and w > 0:
+                angle = np.degrees(np.arctan2(delta[1], delta[0]))
+                if angle >= 90:
+                    angle -= 180
+
                 radius = gaussian_radius((np.ceil(h), np.ceil(w)))
                 radius = max(0, int(radius))
                 ct_int = ct.astype(np.int32)
@@ -258,8 +265,8 @@ class Dataset(data.Dataset):
         del kpts_aug
         del img_aug
 
-        gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else np.zeros(
-            (1, 7 if self.use_rotated_boxes else 6), dtype=np.float32)
+        gt_det = np.array(gt_det, dtype=np.float32) if len(
+            gt_det) > 0 else np.zeros((1, 7), dtype=np.float32)
 
         ret = {
             'input': inp,
