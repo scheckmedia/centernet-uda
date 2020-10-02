@@ -92,7 +92,7 @@ class Visualizer:
                 isClosed=True,
                 color=self.cmap[cid],
                 thickness=2,
-                lineType=cv2.LINE_4)
+                lineType=cv2.LINE_AA)
             poly = Polygon(
                 np.array(contours, dtype=np.int32).reshape(-1, 2),
                 label=self.classes[cid]['name'])
@@ -120,6 +120,7 @@ class Visualizer:
             poly = Polygon(
                 np.array(contours, dtype=np.int32).reshape(-1, 2),
                 label=f"{self.classes[int(cid)]['name']}: {pred_scores[i]:.2f}")
+            # pred_img = poly.draw_on_image(pred_img, self.cmap[cid], alpha=self.alpha, )
 
             cv2.polylines(
                 pred_img,
@@ -127,7 +128,7 @@ class Visualizer:
                 isClosed=True,
                 color=self.cmap[cid],
                 thickness=2,
-                lineType=cv2.LINE_4)
+                lineType=cv2.LINE_AA)
 
             pred_img = poly.to_bounding_box().draw_label_on_image(
                 pred_img,
