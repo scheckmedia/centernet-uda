@@ -234,22 +234,21 @@ class Dataset(data.Dataset):
                            np.clip(p.y, 0, output_h - 1)))
                 points.append(kp)
 
-            points = np.array(points)
+            points = np.array(points).astype(np.float32)
+            cv_ct, cv_wh, cv_angle = cv2.minAreaRect(points)
 
-            # restore angle from augmented points
-            delta = points[1] - points[0]
+            if cv_wh[0] == 0 or cv_wh[1] == 0:
+                continue
 
-            w = np.sqrt(((points[1] - points[0]) ** 2).sum())
-            h = np.sqrt(((points[3] - points[0]) ** 2).sum())
-            ct = points.mean(axis=0)
+            box = dict(anns[k])
+            box['rbbox'] = np.array(
+                [cv_ct[0], cv_ct[1], cv_wh[0], cv_wh[1], cv_angle])
+            cx, cy, w, h, angle = get_annotation_with_angle(box)
+            ct = np.array((cx, cy))
 
             cls_id = int(self.cat_mapping[ann['category_id']])
 
             if h > 0 and w > 0:
-                angle = np.degrees(np.arctan2(delta[1], delta[0]))
-                if angle >= 90:
-                    angle -= 180
-
                 radius = gaussian_radius((np.ceil(h), np.ceil(w)))
                 radius = max(0, int(radius))
                 ct_int = ct.astype(np.int32)
