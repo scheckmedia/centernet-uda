@@ -1,13 +1,15 @@
 import torch
 import torch.nn.functional as F
 from utils.tensor import _transpose_and_gather_feat, _sigmoid
+import numpy as np
 
 
 class DetectionLoss(torch.nn.Module):
-    def __init__(self, hm_weight, wh_weight, off_weight):
+    def __init__(self, hm_weight, wh_weight, off_weight, periodic=False):
         super().__init__()
         self.crit_hm = FocalLoss()
         self.crit_reg = RegL1Loss()
+        self.crit_hw = RegL1Loss() if not periodic else PeriodicRegL1Loss()
 
         self.hm_weight = hm_weight
         self.wh_weight = wh_weight
@@ -19,8 +21,8 @@ class DetectionLoss(torch.nn.Module):
         output['hm'] = _sigmoid(output['hm'])
 
         hm_loss += self.crit_hm(output['hm'], batch['hm'])
-        wh_loss += self.crit_reg(output['wh'], batch['reg_mask'],
-                                 batch['ind'], batch['wh'])
+        wh_loss += self.crit_hw(output['wh'], batch['reg_mask'],
+                                batch['ind'], batch['wh'])
         off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                                   batch['ind'], batch['reg'])
 
@@ -81,4 +83,34 @@ class RegL1Loss(torch.nn.Module):
         # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
         loss = F.l1_loss(pred * mask, target * mask, size_average=False)
         loss = loss / (mask.sum() + 1e-4)
+        return loss
+
+
+class PeriodicRegL1Loss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, output, mask, ind, target):
+        pred = _transpose_and_gather_feat(output, ind)
+        mask = mask.unsqueeze(2).expand_as(pred).float()
+        pred *= mask
+        target *= mask
+
+        pred_wh = pred[..., 0:2]
+        pred_angle = pred[..., 2:3]
+
+        target_wh = target[..., 0:2]
+        target_angle = target[..., 2:3]
+
+        # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
+        loss = F.l1_loss(pred_wh, target_wh, size_average=False)
+        loss = loss / (mask.sum() + 1e-4)
+
+        periodic_loss = torch.abs(
+            torch.remainder(
+                (pred_angle - target_angle) - np.pi / 2,
+                np.pi) - np.pi / 2)
+        periodic_loss = periodic_loss.sum() / (mask.sum() + 1e-4)
+
+        loss += periodic_loss
         return loss
