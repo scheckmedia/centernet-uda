@@ -240,10 +240,8 @@ class Dataset(data.Dataset):
             if cv_wh[0] == 0 or cv_wh[1] == 0:
                 continue
 
-            box = dict(anns[k])
-            box['rbbox'] = np.array(
-                [cv_ct[0], cv_ct[1], cv_wh[0], cv_wh[1], cv_angle])
-            cx, cy, w, h, angle = get_annotation_with_angle(box)
+            cx, cy, w, h, angle = get_annotation_with_angle({'rbbox': np.array(
+                [cv_ct[0], cv_ct[1], cv_wh[0], cv_wh[1], cv_angle])})
             ct = np.array((cx, cy))
 
             cls_id = int(self.cat_mapping[ann['category_id']])
