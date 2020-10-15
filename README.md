@@ -10,7 +10,7 @@ a CenterNet object detection network.
   - [x] Max Squares minimization
   - [ ] Image-wise Class-balanced Weighting Factor (MT I)
   - [ ] Multi-level Self-produced guidance (MT I)
-- [ ] [FDA](https://arxiv.org/abs/2004.05498) (MT I)
+- [ ] [FDA](https://arxiv.org/abs/2004.05498) (RP I)
 
 ## Usage
 This implementation uses [hydra](https://github.com/facebookresearch/hydra) as configuration framework.
