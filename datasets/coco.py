@@ -40,6 +40,7 @@ class Dataset(data.Dataset):
         self.std = np.array(std, dtype=np.float32).reshape(1, 1, 3)
         self.augmentation = augmentation
         self.num_classes = num_classes
+        self.string_id_mapping = {}
         self.augment_target_domain = augment_target_domain
         self.cat_mapping = {v: i for i,
                             v in enumerate(range(1, num_classes + 1))}
@@ -85,6 +86,12 @@ class Dataset(data.Dataset):
             ret = self.__get_rotated_coco(img, anns, num_objs)
         else:
             ret = self.__get_default_coco(img, anns, num_objs)
+
+        if isinstance(img_id, str):
+            mapped_id = self.string_id_mapping.get(
+                img_id, 1 + len(self.string_id_mapping))
+            self.string_id_mapping[img_id] = mapped_id
+            img_id = mapped_id
 
         ret['id'] = img_id
 
