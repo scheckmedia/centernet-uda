@@ -172,7 +172,11 @@ class Dataset(data.Dataset):
                 reg_mask[k] = 1
                 gt_det[k] = ([ct[0] - w / 2, ct[1] - h / 2,
                               ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
-                gt_areas[k] = ann["area"]
+
+                if "area" not in ann:
+                    gt_areas[k] = w * h
+                else:
+                    gt_areas[k] = ann["area"]
 
         del bbs
         del bbs_aug
@@ -263,7 +267,11 @@ class Dataset(data.Dataset):
                 reg[k] = ct - ct_int
                 reg_mask[k] = 1
                 gt_det[k] = ([ct[0], ct[1], w, h, angle, 1, cls_id])
-                gt_areas[k] = ann["area"]
+
+                if "area" not in ann:
+                    gt_areas[k] = w * h
+                else:
+                    gt_areas[k] = ann["area"]
 
         del kpts
         del kpts_aug
