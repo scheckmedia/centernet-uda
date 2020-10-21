@@ -108,8 +108,8 @@ class PeriodicRegL1Loss(torch.nn.Module):
 
         periodic_loss = torch.abs(
             torch.remainder(
-                (pred_angle - target_angle) - 90.0,
-                180.0) - 90)
+                (pred_angle - target_angle) - np.pi / 2, np.pi) - np.pi / 2
+        )
         periodic_loss = periodic_loss.sum() / (mask.sum() + 1e-4)
 
         loss += periodic_loss

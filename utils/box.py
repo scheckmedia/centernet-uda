@@ -36,7 +36,7 @@ def get_annotation_with_angle(ann):
 
 
 def rotate_bbox(x, y, w, h, angle):
-    c, s = np.cos(angle / 180 * np.pi), np.sin(angle / 180 * np.pi)
+    c, s = np.cos(angle), np.sin(angle)
     R = np.asarray([[c, s], [-s, c]])
     pts = np.asarray(
         [[-w / 2, -h / 2],

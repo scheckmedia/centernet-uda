@@ -64,7 +64,8 @@ class Model():
             src["hm"],
             src["wh"],
             src["reg"],
-            K=self.cfg.max_detections)
+            K=self.cfg.max_detections,
+            rotated=self.cfg.model.backend.params.rotated_boxes)
         dets = dets.detach().cpu().numpy()
         dets[:, :, :4] *= self.backend.down_ratio
 
