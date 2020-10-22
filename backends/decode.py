@@ -8,7 +8,8 @@ def _nms(heat, kernel=3):
 
     hmax = nn.functional.max_pool2d(
         heat, (kernel, kernel), stride=1, padding=pad)
-    keep = (hmax == heat).float()
+    # keep = (hmax == heat).float()
+    keep = 1. - torch.ceil(hmax - heat)
     return heat * keep
 
 
@@ -31,7 +32,7 @@ def _topk(scores, K=40):
     return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
 
 
-def decode_detection(heat, wh, reg=None, K=100):
+def decode_detection(heat, wh, reg=None, K=100, rotated=False):
     batch, cat, height, width = heat.size()
 
     # heat = heat.sigmoid_()
@@ -51,7 +52,7 @@ def decode_detection(heat, wh, reg=None, K=100):
     wh = wh.view(batch, K, wh.shape[-1])
     clses = clses.view(batch, K, 1).float()
     scores = scores.view(batch, K, 1)
-    if wh.shape[-1] == 2:
+    if not rotated:
         bboxes = torch.cat([xs - wh[..., 0:1] / 2,
                             ys - wh[..., 1:2] / 2,
                             xs + wh[..., 0:1] / 2,
