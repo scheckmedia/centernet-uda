@@ -4,6 +4,7 @@
 import itertools
 import os
 
+from multiprocessing import Pool
 import numpy as np
 from utils.helper import RedirectOut
 from utils.box import rotate_bbox
@@ -76,9 +77,13 @@ class Evaluator():
         self.gt_annos = []
         self.existent_labels = {}
         self.__id_counter = 0
+        self.pool = None
 
     def add_batch(self, pred_boxes, pred_classes, pred_scores,
                   gt_boxes, gt_classes, gt_ids, gt_areas, image_shape):
+        if self.pool is None:
+            self.pool = Pool(processes=None)
+
         self.__convert_to_coco(
             pred_boxes,
             pred_classes,
@@ -181,6 +186,8 @@ class Evaluator():
         self.ids.clear()
         self.pred_annos.clear()
         self.gt_annos.clear()
+        self.pool.close()
+        self.pool = None
         self.__id_counter = 0
 
     def __convert_to_tensorboard(self, coco_results):
@@ -203,7 +210,8 @@ class Evaluator():
                     if self.classes is not None and cid in self.classes:
                         label = self.classes[cid]["name"]
 
-                    # label = self.labels[cid] if self.labels is not None and cid in self.labels else cid
+                    # label = self.labels[cid] if self.labels is not None and
+                    # cid in self.labels else cid
                     label = nk.format(str(label))
                     results[label] = v[cid]
             else:
@@ -225,6 +233,12 @@ class Evaluator():
         gt_crowdeds = (iter(gt_crowdeds) if gt_crowdeds is not None
                        else itertools.repeat(None))
 
+        pred_args = []
+        gt_args = []
+
+        pred_counter = len(self.pred_annos)
+        gt_counter = len(self.gt_annos)
+
         for i, (pred_bbox, pred_label, pred_score, gt_bbox, gt_label,
                 gt_id, gt_area, gt_crowded) in enumerate(zip(
                 pred_bboxes, pred_labels, pred_scores,
@@ -242,44 +256,55 @@ class Evaluator():
 
             for pred_bb, pred_lb, pred_sc in zip(pred_bbox, pred_label,
                                                  pred_score):
-                self.pred_annos.append(
-                    self.__create_anno(
-                        pred_bb,
-                        pred_lb,
-                        pred_sc,
-                        img_id=image_id,
-                        anno_id=len(
-                            self.pred_annos) + 1,
-                        crw=0,
-                        ar=None,
-                        image_shape=image_shape))
+                pred_counter += 1
+                pred_args.append(
+                    (pred_bb,
+                     pred_lb,
+                     pred_sc,
+                     image_id,
+                     pred_counter,
+                     None,
+                     0,
+                     image_shape,
+                     self.use_rotated_boxes))
+
                 self.existent_labels[pred_lb] = True
 
             for gt_bb, gt_lb, gt_ar, gt_crw in zip(
                     gt_bbox, gt_label, gt_area, gt_crowded):
-                self.gt_annos.append(
-                    self.__create_anno(
-                        gt_bb,
-                        gt_lb,
-                        None,
-                        img_id=image_id,
-                        anno_id=len(
-                            self.gt_annos) + 1,
-                        ar=gt_ar,
-                        crw=gt_crw,
-                        image_shape=image_shape))
+                gt_counter += 1
+                gt_args.append(
+                    (gt_bb,
+                     gt_lb,
+                     None,
+                     image_id,
+                     gt_counter,
+                     gt_ar,
+                     gt_crw,
+                     image_shape,
+                     self.use_rotated_boxes))
+
                 self.existent_labels[gt_lb] = True
 
             self.ids.append(
                 {'id': image_id, 'width': image_shape[2],
-                 'height': image_shape[1]})
+                    'height': image_shape[1]})
 
-    def __create_anno(self, bb, lb, sc, img_id, anno_id,
-                      ar=None, crw=None, image_shape=(3, 512, 512)):
+        for res in self.pool.starmap(self.create_anno, gt_args):
+            self.gt_annos.append(res)
+
+        for res in self.pool.starmap(self.create_anno, pred_args):
+            self.pred_annos.append(res)
+
+    @staticmethod
+    def create_anno(
+            bb, lb, sc, img_id, anno_id, ar=None, crw=None,
+            image_shape=(3, 512, 512),
+            use_rotated_boxes=False):
         if crw is None:
             crw = False
 
-        if self.use_rotated_boxes:
+        if use_rotated_boxes:
             mask = np.zeros((image_shape[1:]))
             rot_pts = np.array(rotate_bbox(*bb))
             cv2.fillPoly(mask, [rot_pts.reshape(1, -1, 2)], color=(255,))
