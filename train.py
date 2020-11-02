@@ -71,6 +71,7 @@ def main(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu)
     device = torch.device(f'cuda' if cfg.gpu is not None else 'cpu')
+    log.info(f"Use device {device} for training")
 
     backend = hydra.utils.get_method(
         f'backends.{cfg.model.backend.name}.build')(**cfg.model.backend.params)
@@ -146,6 +147,9 @@ def main(cfg: DictConfig) -> None:
                     m = stats.get(log_key, AverageMeter(name=k))
                     m.update(outputs["stats"][k].item(), data["input"].size(0))
                     stats[log_key] = m
+
+            if epoch % cfg.eval_at_n_epoch != 0:
+                continue
 
             tag = 'validation'
             uda.backend.eval()
