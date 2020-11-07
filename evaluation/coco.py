@@ -78,11 +78,12 @@ class Evaluator():
         self.existent_labels = {}
         self.__id_counter = 0
         self.pool = None
+        self.num_workers = None
 
     def add_batch(self, pred_boxes, pred_classes, pred_scores,
                   gt_boxes, gt_classes, gt_ids, gt_areas, image_shape):
         if self.pool is None:
-            self.pool = Pool(processes=None)
+            self.pool = Pool(processes=self.num_workers)
 
         self.__convert_to_coco(
             pred_boxes,
@@ -307,7 +308,7 @@ class Evaluator():
         if use_rotated_boxes:
             mask = np.zeros((image_shape[1:]))
             rot_pts = np.array(rotate_bbox(*bb))
-            cv2.fillPoly(mask, [rot_pts.reshape(1, -1, 2)], color=(255,))
+            cv2.fillPoly(mask, [rot_pts.reshape(1, -1, 2)], color=(1,))
             mask = np.asfortranarray(mask.astype(np.uint8))
             rle = mask_tools.encode(mask)
             ar = mask_tools.area(rle)
