@@ -20,12 +20,13 @@ def get_annotation_with_angle(ann):
         new_ann = np.array(ann['rbbox'], dtype=np.float32)
         if new_ann[2] > new_ann[3]:
             new_ann[2], new_ann[3] = new_ann[3], new_ann[2]
-            new_ann[4] += (90.0 - 0.001)
-
-        new_ann[4] = np.clip(new_ann[4], -90, 90 - 0.001)
+            new_ann[4] -= 90 if new_ann[4] > 0 else -90
 
     if new_ann[2] == new_ann[3]:
         new_ann[3] += 1  # force that w < h
+
+    if new_ann[4] == 90:
+        new_ann[4] = -90
 
     assert new_ann[2] < new_ann[3], "width not smaller than height"
     assert (new_ann[4] >= -90 and
