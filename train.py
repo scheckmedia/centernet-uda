@@ -116,6 +116,7 @@ def main(cfg: DictConfig) -> None:
         e = hydra.utils.get_class(
             f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
         e.classes = tensorboard_logger.classes
+        e.num_workers = cfg.num_workers
         e.use_rotated_boxes = cfg.model.backend.params.rotated_boxes
         evaluators.append(e)
 
