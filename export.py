@@ -31,7 +31,7 @@ class CenterNet(nn.Module):
         return dets[:, :, :4], dets[:, :, 4], dets[:, :, 5]
 
 
-def build_model(experiment, model_spec, decode_detection,
+def build_model(experiment, model_spec, without_decode_detections,
                 max_detections, use_last=True):
 
     module = import_module(f"backends.{model_spec['name']}")
@@ -45,7 +45,7 @@ def build_model(experiment, model_spec, decode_detection,
     else:
         print(f"No weights were found in folder {experiment}")
 
-    if decode_detection:
+    if not without_decode_detections:
         model = CenterNet(backend, max_detections,
                           model_spec["params"]["rotated_boxes"])
     else:
@@ -56,13 +56,13 @@ def build_model(experiment, model_spec, decode_detection,
 
 
 def export_model(experiment, model, model_name,
-                 input_shape, decode_detections):
+                 input_shape, without_decode_detections):
     shape = [1, ] + input_shape
     x = torch.randn(*shape, requires_grad=True)
     torch_out = model(x)
 
     outputs = ['output']
-    if not decode_detections:
+    if without_decode_detections:
         outputs.extend(['wh', 'rg'])
 
     output_path = experiment / \
