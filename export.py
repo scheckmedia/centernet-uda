@@ -1,0 +1,143 @@
+import argparse
+from pathlib import Path
+import torch
+import torch.nn as nn
+from backends.decode import decode_detection
+import yaml
+from importlib import import_module
+
+
+class CenterNet(nn.Module):
+    def __init__(self, backend, max_detections, is_rotated=False):
+        super().__init__()
+        self.backend = backend
+        self.max_detections = max_detections
+        self.is_rotated = is_rotated
+
+    def forward(self, x):
+        out = self.backend(x)
+        dets = decode_detection(
+            torch.clamp(out["hm"].sigmoid_(), min=1e-4, max=1 - 1e-4),
+            out["wh"],
+            out["reg"],
+            K=self.max_detections)
+
+        dets[:, :, :4] *= self.backend.down_ratio
+
+        # boxes, scores, classes
+        if self.is_rotated:
+            dets[:, :, :5], dets[:, :, 5], dets[:, :, 6]
+
+        return dets[:, :, :4], dets[:, :, 4], dets[:, :, 5]
+
+
+def build_model(experiment, model_spec, decode_detection,
+                max_detections, use_last=True):
+
+    module = import_module(f"backends.{model_spec['name']}")
+    backend = getattr(module, 'build')(**model_spec["params"])
+
+    ckpt = experiment / ('model_last.pth' if use_last else 'model_best.pth')
+    if ckpt.exists():
+        checkpoint = torch.load(ckpt)
+        backend.load_state_dict(checkpoint['state_dict'])
+        print(f"Restore weights {ckpt} successful!")
+    else:
+        print(f"No weights were found in folder {experiment}")
+
+    if decode_detection:
+        model = CenterNet(backend, max_detections,
+                          model_spec["params"]["rotated_boxes"])
+    else:
+        model = backend
+
+    model.eval()
+    return model
+
+
+def export_model(experiment, model, model_name,
+                 input_shape, decode_detections):
+    shape = [1, ] + input_shape
+    x = torch.randn(*shape, requires_grad=True)
+    torch_out = model(x)
+
+    outputs = ['output']
+    if not decode_detections:
+        outputs.extend(['wh', 'rg'])
+
+    output_path = experiment / \
+        f"centernet_{model_name}_{shape[2]}x{shape[3]}.onnx"
+    torch.onnx.export(model,               # model being run
+                      x,
+                      output_path,
+                      export_params=True,        # store the trained parameter weights inside the model file
+                      opset_version=11,          # the ONNX version to export the model to
+                      do_constant_folding=True,  # whether to execute constant folding for optimization
+                      input_names=['input'],   # the model's input names
+                      output_names=outputs,
+                      dynamic_axes={'input': {0: 'batch_size'},    # variable lenght axes
+                                    'output': {0: 'batch_size'}})
+
+    print(f"Export model to {output_path} successful!")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Export an experiment to onnx model')
+
+    parser.add_argument(
+        "-e", "--experiment", required=True,
+        help="Path to the experiment that should be exported.")
+    parser.add_argument(
+        "-i",
+        "--input_shape",
+        type=int,
+        nargs='+',
+        default=[800, 800],
+        help="Input size for onnx model")
+    parser.add_argument(
+        "-l", "--use_last", action="store_true",
+        help="If given, not the best but the last checkpoint will be restored.")
+    parser.add_argument(
+        "-wd", "--without_decode_detections", action="store_true",
+        help="If given, CenterNet output will be the heads instead of boxes. \
+            The reason for this is that boxes leads to problems with TensorRT.")
+
+    args = parser.parse_args()
+    experiment = Path(args.experiment)
+
+    if not experiment.exists():
+        print("Experiment does not exists!")
+        exit(-1)
+
+    shape_len = len(args.input_shape)
+    if shape_len == 1:
+        input_shape = [3, args.input_shape[0], args.input_shape[1]]
+    elif shape_len == 2:
+        input_shape = [3, ] + args.input_shape
+    else:
+        print("Invlaid input shape ")
+        exit(-2)
+
+    g = list(experiment.glob('*/config.yaml'))
+    if len(g) == 0:
+        print("No config.yaml file where found in experiment folder!")
+        exit(-1)
+
+    with open(g[0]) as f:
+        cfg = yaml.load(f)
+        model_specs = cfg["model"]["backend"]
+
+    model = build_model(
+        experiment,
+        model_specs,
+        args.without_decode_detections,
+        cfg["max_detections"],
+        args.use_last)
+
+    export_model(
+        experiment,
+        model,
+        model_specs["name"],
+        input_shape,
+        args.without_decode_detections)
