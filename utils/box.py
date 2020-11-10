@@ -28,6 +28,8 @@ def get_annotation_with_angle(ann):
     if new_ann[4] == 90:
         new_ann[4] = -90
 
+    new_ann[4] = np.clip(new_ann[4], -90, 90 - np.finfo(np.float).eps)
+
     assert new_ann[2] < new_ann[3], "width not smaller than height"
     assert (new_ann[4] >= -90 and
             new_ann[4] < 90), f"{new_ann[4]} not in interval [-90, 90)"
