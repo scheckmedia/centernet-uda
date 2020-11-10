@@ -65,8 +65,9 @@ def export_model(experiment, model, model_name,
     if without_decode_detections:
         outputs.extend(['wh', 'rg'])
 
+    suffix = '_wd' if without_decode_detections else ''
     output_path = experiment / \
-        f"centernet_{model_name}_{shape[2]}x{shape[3]}.onnx"
+        f"centernet_{model_name}_{shape[2]}x{shape[3]}{suffix}.onnx"
     torch.onnx.export(model,               # model being run
                       x,
                       output_path,
