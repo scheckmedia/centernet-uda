@@ -1,6 +1,9 @@
 # CenterNet with Unsupervised Domain Adaptation methods
 This repository holds a small framework to evaluate unsupervised domain adaptation methods in combination with
-a CenterNet object detection network.
+a CenterNet object detection network. But it also allows it to train baselines without UDA methods. There also support for rotated bounding boxes as you can see in the Fig. 1 below.
+
+![detection example](docs/detection_example.jpg)
+*Fig 1.: Detection example of axis aligned and rotated bounding boxes. The first column is the detection result and the last column the ground truth.*
 
 ## Implemented UDA Methods
 - [ADVENT](https://arxiv.org/abs/1811.12833)
@@ -61,6 +64,8 @@ model:
         hm_weight: 1.0
         off_weight: 1.0
         wh_weight: 0.1
+        angle_weight: 1.0 # weight for angle term in loss (only for rotated boxes)
+        periodic: False # if true RAPiD periodic loss will be used for angle
   # used unsupervised domain adaptation method for the experiment
   # in this case none UDA method is used, only the centernet is trained
   uda:
@@ -149,11 +154,86 @@ save_best_metric:
   mode: min # what means best for the metric, is smaller (min) better or bigger (max)
 ```
 
-# Development
+## Dataset
+
+To train CenterNet with your own dataset you have to convert it first into the [MS COCO format](https://cocodataset.org/#format-data). Each *file_name* value is specified without a path.
+
+**Image example**
+
+```json
+  ...
+  "images": [
+    {
+      "id": 1,
+      "width": 1680,
+      "height": 1680,
+      "file_name": "Record_00600.jpg",
+      "license": 0,
+      "flickr_url": "",
+      "coco_url": "",
+      "date_captured": 0
+    },
+    ...
+```
+
+**Annotation example**
+As in the example below, there exists a bbox and a rbbox key.
+
+* bbox - axis aligned bounding box like typical for MS COCO (`[x,y,width,height]`)
+* rbbox - bounding box in format `[cx, cy, width, height, angle]` ([OpenCV minAreaRect](https://docs.opencv.org/3.4/dd/d49/tutorial_py_contour_features.html))
+
+
+```json
+  {
+      "id": 17,
+      "image_id": 1,
+      "category_id": 1,
+      "segmentation": [
+        [
+          440.66,
+          ...,
+          575.68
+        ]
+      ],
+      "area": 16656,
+      "bbox": [
+        403.8,
+        538.84,
+        163.96,
+        147.37
+      ],
+      "iscrowd": 0,
+      "attributes": {
+        "occluded": false
+      },
+      "rbbox": [
+        473.5887145996094,
+        617.488037109375,
+        160.44503784179688,
+        141.49945068359375,
+        -19.881549835205078
+      ]
+    }
+```
+
+
+## Development
 WIP
 
 
 ### References
 > [**Objects as Points**](http://arxiv.org/abs/1904.07850),
-> Xingyi Zhou, Dequan Wang, Philipp Kr&auml;henb&uuml;hl,
+> Xingyi Zhou, et al.,
 > *arXiv technical report ([arXiv 1904.07850](http://arxiv.org/abs/1904.07850))*
+
+> [**RAPiD: Rotation-Aware People Detection in Overhead Fisheye Images**](https://openaccess.thecvf.com/content_CVPRW_2020/html/w38/Duan_RAPiD_Rotation-Aware_People_Detection_in_Overhead_Fisheye_Images_CVPRW_2020_paper.html),
+> Zhihao Duan, Ozan Tezcan, Hayato Nakamura, Prakash Ishwar, Janusz Konrad,
+> *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops. 2020*
+
+> [**Advent: Adversarial entropy minimization for domain adaptation in semantic segmentation.**](http://openaccess.thecvf.com/content_CVPR_2019/html/Vu_ADVENT_Adversarial_Entropy_Minimization_for_Domain_Adaptation_in_Semantic_Segmentation_CVPR_2019_paper.html)
+> Vu, Tuan-Hung, et al.,
+> *Proceedings of the IEEE conference on computer vision and pattern recognition. 2019.*
+
+> [**Domain adaptation for semantic segmentation with maximum squares loss.**](http://openaccess.thecvf.com/content_ICCV_2019/html/Chen_Domain_Adaptation_for_Semantic_Segmentation_With_Maximum_Squares_Loss_ICCV_2019_paper.html)
+> Chen, Minghao, et. al.,
+> Proceedings of the IEEE International Conference on Computer Vision. 2019
