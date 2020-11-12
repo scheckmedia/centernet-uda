@@ -26,7 +26,7 @@ class CenterNet(nn.Module):
 
         # boxes, scores, classes
         if self.is_rotated:
-            dets[:, :, :5], dets[:, :, 5], dets[:, :, 6]
+            return dets[:, :, :5], dets[:, :, 5], dets[:, :, 6]
 
         return dets[:, :, :4], dets[:, :, 4], dets[:, :, 5]
 
@@ -44,6 +44,9 @@ def build_model(experiment, model_spec, without_decode_detections,
         print(f"Restore weights {ckpt} successful!")
     else:
         print(f"No weights were found in folder {experiment}")
+
+    if model_spec['name'] == 'efficientnet':
+        backend.base.set_swish(memory_efficient=False)
 
     if not without_decode_detections:
         model = CenterNet(backend, max_detections,
