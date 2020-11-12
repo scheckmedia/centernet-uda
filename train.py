@@ -210,7 +210,7 @@ def main(cfg: DictConfig) -> None:
                     f"Save best model with {cfg.save_best_metric.name} of {current:.4f}")
 
     if test_loader is not None:
-        if not cfg.test_only:
+        if cfg.test_only:
             epoch = start_epoch
         tag = 'test'
         uda.backend.eval()
