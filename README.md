@@ -5,6 +5,7 @@ a CenterNet object detection network. But it also allows it to train baselines w
 ![detection example](docs/detection_example.jpg)
 *Fig 1.: Detection example of axis aligned and rotated bounding boxes. The first column is the detection result and the last column the ground truth.*
 
+
 ## Implemented UDA Methods
 - [ADVENT](https://arxiv.org/abs/1811.12833)
   - [x] Direct Entropy minimization
@@ -14,6 +15,16 @@ a CenterNet object detection network. But it also allows it to train baselines w
   - [ ] Image-wise Class-balanced Weighting Factor (MT I)
   - [ ] Multi-level Self-produced guidance (MT I)
 - [ ] [FDA](https://arxiv.org/abs/2004.05498) (RP I)
+
+## Installation
+
+Install all required modules:
+
+    pip install -r requirements.txt
+
+If you plan to run the DLA network or MobileNet v2 with Deformable Convolutional Networks V2 you have to compile the DCNv2 lib.
+
+    cd libs/DCNv2 && ./make.sh
 
 ## Usage
 This implementation uses [hydra](https://github.com/facebookresearch/hydra) as configuration framework.
@@ -103,11 +114,15 @@ datasets:
   validation:
     name: datasets.coco
     params:
-      image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
-      annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_training.json
-      target_domain_glob:
-        - /mnt/data/datasets/DST/2020-02-14-14h30m47s/*.jpg
-        - /mnt/data/datasets/CEPDOF/**/*.jpg
+      image_folder: /mnt/data/datasets/FES/JPEGImages/
+      annotation_file: /mnt/data/datasets/FES/coco/annotations/instances_training.json
+
+  # paraemters for test dataset
+  test:
+    name: datasets.coco
+    params:
+      image_folder: /mnt/data/datasets/CEPDOF/coco/images/
+      annotation_file: /mnt/data/datasets/CEPDOF/coco/annotations/instances_test.json
 
 # parameters to normalize an image, additional to pixel / 255 normalization
 normalize:
@@ -146,6 +161,7 @@ num_workers: 4 # number of parallel workers are used for the data loader
 
 seed: 42 # random seed
 gpu: 0 # gpu id to use for training
+eval_at_n_epoch: 1 # every N epoch the validation will be executed (epoch % N == 0)
 
 
 # how to identify a "best" model, what metric describes it
@@ -153,6 +169,12 @@ save_best_metric:
   name: validation/total_loss # can be training/total_loss, validation/total_loss or MSCOCO_Precision/mAP
   mode: min # what means best for the metric, is smaller (min) better or bigger (max)
 ```
+
+### Implemented Backends
+- [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484) with 34 layers
+- [MobileNetV2](https://arxiv.org/abs/1801.04381) with **𝛼** = 1.0
+- [ResNet](https://arxiv.org/abs/1512.03385) with 18, 34, 50, 101, 152 layers
+- [EfficientNet](https://arxiv.org/abs/1905.11946) Variant b[0 - 8]
 
 ## Dataset
 
