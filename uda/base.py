@@ -153,7 +153,10 @@ class Model():
         return (epoch + 1) if resume else 1
 
     def save_model(self, path, epoch, with_optimizer=False):
-        state_dict = self.backend.state_dict()
+        if isinstance(self.backend, torch.nn.DataParallel):
+            state_dict = self.backend.module.state_dict()
+        else:
+            state_dict = self.backend.state_dict()
 
         data = {
             'epoch': epoch,

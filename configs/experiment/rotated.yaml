@@ -1,5 +1,5 @@
-experiment: rotated
-pretrained:
+experiment: rotated_test
+pretrained: /mnt/data/Projects/centernet-uda/outputs/rotated/model_best.pth
 model:
   backend:
     name: resnet
@@ -7,6 +7,9 @@ model:
       num_layers: 101
       num_classes: 6
       rotated_boxes: True
+    loss:
+      params:
+        periodic: True
   uda:
 
 datasets:
@@ -14,8 +17,8 @@ datasets:
     params:
       image_folder: /mnt/datasets_ssd/theodore_plus/images/
       annotation_file: /mnt/datasets_ssd/theodore_plus/coco/annotations/instances.json
-      #image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
-      #annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_default_with_rbbox.json
+      # image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
+      # annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_default_with_rbbox.json
       target_domain_glob:
   validation:
     params:

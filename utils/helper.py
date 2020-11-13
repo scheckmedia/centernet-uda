@@ -68,3 +68,12 @@ def instantiate_augmenters(augmentation_list):
         log.debug(
             f"Register imgaug.augmenters.{method} as augmentation method")
     return augmentation_methods
+
+
+# https://discuss.pytorch.org/t/access-att-of-model-wrapped-within-torch-nn-dataparallel-maximum-recursion-depth-exceeded/46975/2
+class CustomDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)

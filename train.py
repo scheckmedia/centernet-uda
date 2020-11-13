@@ -3,11 +3,11 @@ import os
 
 import hydra
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from utils.helper import AverageMeter
+from utils.helper import AverageMeter, CustomDataParallel
 from utils.tensorboard import TensorboardLogger
 
 log = logging.getLogger("uda")
@@ -69,12 +69,24 @@ def load_datasets(cfg, down_ratio, rotated_boxes):
 @hydra.main(config_path="configs/defaults.yaml")
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu)
+
+    is_multi_gpu = False
+
+    if isinstance(cfg.gpu, ListConfig):
+        is_multi_gpu = True
+        log.info(f"Use GPUs {str(cfg.gpu).strip('[]')} for training")
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu)
+
     device = torch.device(f'cuda' if cfg.gpu is not None else 'cpu')
     log.info(f"Use device {device} for training")
 
     backend = hydra.utils.get_method(
         f'backends.{cfg.model.backend.name}.build')(**cfg.model.backend.params)
+
+    if is_multi_gpu:
+        backend = CustomDataParallel(backend)
+
     backend.to(device)
 
     optimizer = hydra.utils.get_class(f"torch.optim.{cfg.optimizer.name}")

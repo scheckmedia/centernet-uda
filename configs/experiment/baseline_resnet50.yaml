@@ -11,6 +11,8 @@ model:
 datasets:
   training:
     params:
+      image_folder: /mnt/datasets_ssd/theodore_paper_25k_coco/images/
+      annotation_file: /mnt/datasets_ssd/theodore_paper_25k_coco/annotations/instances.json
       target_domain_glob:
   validation:
     params:
