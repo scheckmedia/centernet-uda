@@ -160,7 +160,7 @@ batch_size: 16 # batch size
 num_workers: 4 # number of parallel workers are used for the data loader
 
 seed: 42 # random seed
-gpu: 0 # gpu id to use for training
+gpu: 0 # gpu id to use for training or list of gpus for multi gpu training
 eval_at_n_epoch: 1 # every N epoch the validation will be executed (epoch % N == 0)
 
 
