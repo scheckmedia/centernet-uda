@@ -84,11 +84,6 @@ def main(cfg: DictConfig) -> None:
     backend = hydra.utils.get_method(
         f'backends.{cfg.model.backend.name}.build')(**cfg.model.backend.params)
 
-    if is_multi_gpu:
-        backend = CustomDataParallel(backend)
-
-    backend.to(device)
-
     optimizer = hydra.utils.get_class(f"torch.optim.{cfg.optimizer.name}")
     optimizer = optimizer(filter(lambda p: p.requires_grad,
                                  backend.parameters()), **cfg.optimizer.params)
@@ -137,6 +132,11 @@ def main(cfg: DictConfig) -> None:
         start_epoch = uda.load_model(cfg.pretrained)
     elif cfg.resume is not None:
         start_epoch = uda.load_model(cfg.resume, True)
+
+    if is_multi_gpu:
+        uda.backend = CustomDataParallel(backend)
+
+    uda.backend.to(device)
 
     stats = {}
     best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
