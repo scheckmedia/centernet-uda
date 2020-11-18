@@ -8,15 +8,6 @@ class EntropyMinimization(Model):
         self.entropy_loss = EntropyLoss()
         self.entropy_weight = entropy_weight
 
-    def criterion(self, outputs, batch):
-        c_loss, c_stats = self.centernet_loss(outputs["source_domain"], batch)
-        e_loss, e_stats = self.entropy_loss(outputs["target_domain"], batch)
-
-        loss = c_loss + e_loss * self.entropy_weight
-        stats = {**c_stats, **e_stats}
-
-        return loss, stats
-
     def step(self, data, is_training=True):
         for k in data:
             data[k] = data[k].to(device=self.device, non_blocking=True)
@@ -31,13 +22,18 @@ class EntropyMinimization(Model):
             "source_domain": outputs_source_domain,
             "target_domain": outputs_target_domain
         }
-        loss, stats = self.criterion(outputs, data)
+
+        c_loss, c_stats = self.centernet_loss(outputs["source_domain"], data)
+        e_loss, e_stats = self.entropy_loss(outputs["target_domain"], data)
+        e_loss *= self.entropy_weight
 
         if is_training:
-            loss.backward()
+            c_loss.backward()
+            e_loss.backward()
             self.optimizer.step()
 
-        stats["total_loss"] = loss
+        stats = {**c_stats, **e_stats}
+        stats["total_loss"] = c_loss + e_loss
 
         for s in stats:
             stats[s] = stats[s].cpu().detach()
