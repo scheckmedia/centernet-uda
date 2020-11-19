@@ -8,8 +8,8 @@ model:
 datasets:
   training:
     params:
-      image_folder: /mnt/datasets_ssd/theodore_paper_25k_coco/images/
-      annotation_file: /mnt/datasets_ssd/theodore_paper_25k_coco/annotations/instances.json
+      image_folder: /mnt/data/datasets/theodore_v3/images/
+      annotation_file: /mnt/data/datasets/theodore_v3/annotations/instances.json
       augment_target_domain: True
   validation:
     params:
