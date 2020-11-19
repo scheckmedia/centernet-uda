@@ -9,7 +9,7 @@ a CenterNet object detection network. But it also allows it to train baselines w
 ## Implemented UDA Methods
 - [ADVENT](https://arxiv.org/abs/1811.12833)
   - [x] Direct Entropy minimization
-  - [ ] Minimizing entropy with adversarial learning (RP)
+  - [x] Minimizing entropy with adversarial learning
 - [Domain Adaptation for Semantic Segmentation with Maximum Squares Loss](https://arxiv.org/abs/1909.13589)
   - [x] Max Squares minimization
   - [ ] Image-wise Class-balanced Weighting Factor (MT I)
