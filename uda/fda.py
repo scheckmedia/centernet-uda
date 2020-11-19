@@ -27,6 +27,7 @@ class FDA(Model):
 
         outputs = {
             "source_domain": outputs_source_domain,
+            "target_domain": outputs_target_domain
         }
 
         c_loss, c_stats = self.centernet_loss(outputs["source_domain"], data)

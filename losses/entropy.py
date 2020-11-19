@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 class EntropyLoss(torch.nn.Module):
     def __init__(self, eta=None):
+        super().__init__()
         self.eta = eta
 
     def forward(self, outputs, batch):
