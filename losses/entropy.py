@@ -17,7 +17,7 @@ class EntropyLoss(torch.nn.Module):
         if self.eta is not None:
             ent = -1.0 * torch.mul(v, torch.log2(v + 1e-30)).sum(dim=1)
             ent /= torch.log2(torch.Tensor([c]).to(x.device))
-            ent = ent ** 2.0 + + 1e-30
+            ent = ent ** 2.0 + 1e-30
             ent = ent ** self.eta
             entropy_loss = ent.mean()
         else:
