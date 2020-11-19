@@ -1,0 +1,42 @@
+experiment: adversarial_entropy_minimization_dla
+#pretrained: /mnt/data/Projects/centernet-uda/outputs/entropy_minimization_dla/model_best.pth
+model:
+  uda:
+    AdversarialEntropyMinimization:
+      adversarial_weight: 0.0001
+      optimizer:
+        name: Adam
+        params:
+          lr: 0.001
+          weight_decay: 0.0001
+
+datasets:
+  training:
+    params:
+      image_folder: /mnt/datasets_ssd/theodore_paper_25k_coco/images/
+      annotation_file: /mnt/datasets_ssd/theodore_paper_25k_coco/annotations/instances.json
+      augment_target_domain: False
+  validation:
+    params:
+      input_size: [800, 800]
+
+optimizer:
+  name: Adam
+  params:
+    lr: 0.00005
+    weight_decay: 0.0001
+    # momentum: 0.9
+  scheduler:
+    name: CosineAnnealingLR
+    params:
+      T_max: 50
+      eta_min: 0.000001
+      #verbose: True
+batch_size: 16
+epochs: 50
+gpu:
+  - 0
+  - 1
+save_best_metric:
+  name: MSCOCO_Precision/mAP.50IOU
+  mode: max

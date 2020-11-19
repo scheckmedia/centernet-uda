@@ -1,10 +1,8 @@
 import logging
 
-from pathlib import Path
 import numpy as np
-import torch
-
 from backends.decode import decode_detection
+from utils.helper import CustomDataParallel, load_model, save_model
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +17,9 @@ class Model():
         self.scheduler = None
 
         super().__init__()
+
+    def init_done(self):
+        pass
 
     def epoch_start(self):
         pass
@@ -53,6 +54,18 @@ class Model():
         outputs["stats"] = stats
 
         return outputs
+
+    def set_phase(self, is_training=True):
+        if is_training:
+            self.backend.train()
+        else:
+            self.backend.eval()
+
+    def to(self, device, parallel=False):
+        if parallel:
+            self.backend = CustomDataParallel(self.backend)
+
+        self.backend.to(device)
 
     def criterion(self, outputs, batch):
         return self.centernet_loss(outputs["source_domain"], batch)
@@ -106,66 +119,19 @@ class Model():
         }
 
     def load_model(self, path, resume=False):
-        path = Path(path)
-        if not path.exists():
-            log.warning(f"Model path {path} does not exists!")
-            return 1
-
-        checkpoint = torch.load(path)
-        epoch = checkpoint["epoch"]
-        state_dict_ = checkpoint['state_dict']
-        state_dict = {}
-
-        # convert data_parallal to model
-        for k in state_dict_:
-            if k.startswith('module') and not k.startswith('module_list'):
-                state_dict[k[7:]] = state_dict_[k]
-            else:
-                state_dict[k] = state_dict_[k]
-
-        model_state_dict = self.backend.state_dict()
-
-        for k in state_dict:
-            if k in model_state_dict:
-                if state_dict[k].shape != model_state_dict[k].shape:
-                    log.warning(
-                        f"skip parameter {k} because of shape mismatch")
-                    state_dict[k] = model_state_dict[k]
-            else:
-                log.info(f"drop parameter {k}")
-
-        for k in model_state_dict:
-            if k not in state_dict:
-                log.warning(f"no parameter {k} available")
-                state_dict[k] = model_state_dict[k]
-
-        self.backend.load_state_dict(state_dict, strict=False)
-        log.info(f"restore pretrained weights")
-
-        if resume and 'optimizer' in checkpoint:
-            log.info(f"restore optimizer state at epoch {epoch}")
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-
-            if 'scheduler' in checkpoint and self.scheduler is not None:
-                log.info("restore scheduler state")
-                self.scheduler.load_state_dict(checkpoint['scheduler'])
-
-        return (epoch + 1) if resume else 1
+        return load_model(self.backend, self.optimizer,
+                          self.scheduler, path, resume)
 
     def save_model(self, path, epoch, with_optimizer=False):
-        if isinstance(self.backend, torch.nn.DataParallel):
-            state_dict = self.backend.module.state_dict()
-        else:
-            state_dict = self.backend.state_dict()
-
-        data = {
-            'epoch': epoch,
-            'state_dict': state_dict
-        }
         if with_optimizer:
-            data["optimizer"] = self.optimizer.state_dict()
-
-            if self.scheduler is not None:
-                data["scheduler"] = self.scheduler.state_dict()
-
-        torch.save(data, path)
+            save_model(
+                self.backend,
+                path,
+                epoch,
+                self.optimizer,
+                self.scheduler)
+        else:
+            save_model(
+                self.backend,
+                path,
+                epoch)

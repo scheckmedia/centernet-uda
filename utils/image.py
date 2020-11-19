@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 # https://github.com/xingyizhou/CenterNet/blob/master/src/lib/utils/image.py
 
@@ -28,7 +30,7 @@ def gaussian_radius(det_size, min_overlap=0.7):
 
 def gaussian2D(shape, sigma=1):
     m, n = [(ss - 1.) / 2. for ss in shape]
-    y, x = np.ogrid[-m:m+1, -n:n+1]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
 
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
@@ -49,7 +51,8 @@ def draw_umich_gaussian(heatmap, center, radius, k=1):
     masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
     masked_gaussian = gaussian[radius - top:radius +
                                bottom, radius - left:radius + right]
-    if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
+    if min(masked_gaussian.shape) > 0 and min(
+            masked_heatmap.shape) > 0:  # TODO debug
         np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
     return heatmap
 
@@ -59,9 +62,11 @@ def draw_dense_reg(regmap, heatmap, center, value, radius, is_offset=False):
     gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
     value = np.array(value, dtype=np.float32).reshape(-1, 1, 1)
     dim = value.shape[0]
-    reg = np.ones((dim, diameter*2+1, diameter*2+1), dtype=np.float32) * value
+    reg = np.ones(
+        (dim, diameter * 2 + 1, diameter * 2 + 1),
+        dtype=np.float32) * value
     if is_offset and dim == 2:
-        delta = np.arange(diameter*2+1) - radius
+        delta = np.arange(diameter * 2 + 1) - radius
         reg[0] = reg[0] - delta.reshape(1, -1)
         reg[1] = reg[1] - delta.reshape(-1, 1)
 
@@ -78,10 +83,11 @@ def draw_dense_reg(regmap, heatmap, center, value, radius, is_offset=False):
                                radius - left:radius + right]
     masked_reg = reg[:, radius - top:radius + bottom,
                      radius - left:radius + right]
-    if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
+    if min(masked_gaussian.shape) > 0 and min(
+            masked_heatmap.shape) > 0:  # TODO debug
         idx = (masked_gaussian >= masked_heatmap).reshape(
             1, masked_gaussian.shape[0], masked_gaussian.shape[1])
-        masked_regmap = (1-idx) * masked_regmap + idx * masked_reg
+        masked_regmap = (1 - idx) * masked_regmap + idx * masked_reg
     regmap[:, y - top:y + bottom, x - left:x + right] = masked_regmap
     return regmap
 
@@ -108,3 +114,9 @@ def draw_msra_gaussian(heatmap, center, sigma):
         heatmap[img_y[0]:img_y[1], img_x[0]:img_x[1]],
         g[g_y[0]:g_y[1], g_x[0]:g_x[1]])
     return heatmap
+
+
+def entropy_map(hm):
+    probs = F.softmax(hm, dim=1)
+    n, c, h, w = probs.size()
+    return -torch.mul(probs, torch.log2(probs + 1e-30)) / np.log2(c)

@@ -7,7 +7,7 @@ from omegaconf import DictConfig, ListConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from utils.helper import AverageMeter, CustomDataParallel
+from utils.helper import AverageMeter
 from utils.tensorboard import TensorboardLogger
 
 log = logging.getLogger("uda")
@@ -127,16 +127,15 @@ def main(cfg: DictConfig) -> None:
         e.use_rotated_boxes = cfg.model.backend.params.rotated_boxes
         evaluators.append(e)
 
+    uda.init_done()
+
     start_epoch = 1
     if cfg.pretrained is not None and cfg.resume is None:
         start_epoch = uda.load_model(cfg.pretrained)
     elif cfg.resume is not None:
         start_epoch = uda.load_model(cfg.resume, True)
 
-    if is_multi_gpu:
-        uda.backend = CustomDataParallel(backend)
-
-    uda.backend.to(device)
+    uda.to(device, is_multi_gpu)
 
     stats = {}
     best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
@@ -147,7 +146,7 @@ def main(cfg: DictConfig) -> None:
                 initial=start_epoch,
                 position=0, desc='Epoch'):
             uda.epoch_start()
-            uda.backend.train()
+            uda.set_phase(is_training=True)
             tag = 'training'
             for step, data in tqdm(
                     enumerate(train_loader),
@@ -165,7 +164,7 @@ def main(cfg: DictConfig) -> None:
                 continue
 
             tag = 'validation'
-            uda.backend.eval()
+            uda.set_phase(is_training=False)
             with torch.no_grad():
                 for step, data in tqdm(
                         enumerate(val_loader),
