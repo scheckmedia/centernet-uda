@@ -125,7 +125,7 @@ def load_model(model, optimizer, scheduler, path, resume=False):
             log.info("restore scheduler state")
             scheduler.load_state_dict(checkpoint['scheduler'])
 
-    return (epoch + 1) if resume else 1
+    return (epoch + 1) if resume else epoch
 
 
 def save_model(model, path, epoch, optimizer=None, scheduler=None):

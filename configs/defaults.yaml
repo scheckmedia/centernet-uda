@@ -79,6 +79,7 @@ datasets:
       target_domain_glob:
         - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
         - /mnt/datasets_ssd/CEPDOF/**/*.jpg
+
 normalize:
   mean: [0.40789654, 0.44719302, 0.47026115]
   std: [0.28863828, 0.27408164, 0.27809835]

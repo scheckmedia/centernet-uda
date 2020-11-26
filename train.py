@@ -227,7 +227,8 @@ def main(cfg: DictConfig) -> None:
         if cfg.test_only:
             epoch = start_epoch
         tag = 'test'
-        uda.backend.eval()
+
+        uda.set_phase(is_training=False)
         with torch.no_grad():
             for step, data in tqdm(
                     enumerate(test_loader),
