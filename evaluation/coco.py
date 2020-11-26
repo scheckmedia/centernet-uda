@@ -61,7 +61,7 @@ class Evaluator():
     __cached_gt_annotations = {}
     __cached_ids = []
 
-    def __init__(self, per_class=True):
+    def __init__(self, per_class=True, score_threshold=0.1):
         if not _available:
             raise ValueError(
                 'Please install pycocotools \n'
@@ -69,6 +69,7 @@ class Evaluator():
                 '#egg=pycocotools&subdirectory=PythonAPI\'')
         self.per_class = per_class
         self.classes = None
+        self.score_threshold = score_threshold
         self.use_rotated_boxes = False
         self.gt_coco = pycocotools.coco.COCO()
         self.pred_coco = pycocotools.coco.COCO()
@@ -257,6 +258,9 @@ class Evaluator():
 
             for pred_bb, pred_lb, pred_sc in zip(pred_bbox, pred_label,
                                                  pred_score):
+                if pred_sc < self.score_threshold:
+                    continue
+
                 pred_counter += 1
                 pred_args.append(
                     (pred_bb,

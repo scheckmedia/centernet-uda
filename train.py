@@ -120,8 +120,11 @@ def main(cfg: DictConfig) -> None:
 
     evaluators = []
     for e in cfg.evaluation:
+        defaults = {
+            'score_threshold': cfg.score_threshold,
+            **cfg.evaluation[e]}
         e = hydra.utils.get_class(
-            f"evaluation.{e}.Evaluator")(**cfg.evaluation[e])
+            f"evaluation.{e}.Evaluator")(**defaults)
         e.classes = tensorboard_logger.classes
         e.num_workers = cfg.num_workers
         e.use_rotated_boxes = cfg.model.backend.params.rotated_boxes
@@ -138,7 +141,7 @@ def main(cfg: DictConfig) -> None:
     uda.to(device, is_multi_gpu)
 
     stats = {}
-    best = 1e10 if cfg.save_best_metric.mode == 'min' else 1e-10
+    best = 1e10 if cfg.save_best_metric.mode == 'min' else -1e-10
 
     if not cfg.test_only:
         for epoch in tqdm(

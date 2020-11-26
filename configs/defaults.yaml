@@ -70,6 +70,15 @@ datasets:
       target_domain_glob:
         - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
         - /mnt/datasets_ssd/CEPDOF/**/*.jpg
+
+  test:
+    name: coco
+    params:
+      image_folder: /mnt/data/datasets/omnidetector-Flat/JPEGImages/
+      annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_training.json
+      target_domain_glob:
+        - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/datasets_ssd/CEPDOF/**/*.jpg
 normalize:
   mean: [0.40789654, 0.44719302, 0.47026115]
   std: [0.28863828, 0.27408164, 0.27809835]
@@ -86,14 +95,14 @@ evaluation:
 
 tensorboard:
   num_visualizations: 50
-  score_threshold: 0.3
   font_size: 12
   alpha: 0.7
 
 max_detections: 150
+score_threshold: 0.2
 epochs: 100
 batch_size: 16
-num_workers: 4
+num_workers: 6
 
 seed: 42
 gpu: 0

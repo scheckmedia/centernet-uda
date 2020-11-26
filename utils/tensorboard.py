@@ -9,7 +9,7 @@ class TensorboardLogger:
         self.summary_writer = SummaryWriter('logs')
         self.visualizer = Visualizer(
             classes,
-            cfg.tensorboard.score_threshold,
+            cfg.score_threshold,
             cfg.normalize.mean,
             cfg.normalize.std,
             font_size=cfg.tensorboard.font_size,
