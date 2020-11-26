@@ -141,7 +141,7 @@ def main(cfg: DictConfig) -> None:
     uda.to(device, is_multi_gpu)
 
     stats = {}
-    best = 1e10 if cfg.save_best_metric.mode == 'min' else -1e-10
+    best = float("inf") if cfg.save_best_metric.mode == 'min' else -float("inf")
 
     if not cfg.test_only:
         for epoch in tqdm(
@@ -215,8 +215,8 @@ def main(cfg: DictConfig) -> None:
                 return
 
             current = scalars[cfg.save_best_metric.name]
-            if (cfg.save_best_metric.mode == 'min' and best > current
-                    or cfg.save_best_metric.mode == 'max' and best < current):
+            if (cfg.save_best_metric.mode == 'min' and best >
+                    current or cfg.save_best_metric.mode == 'max' and best < current):
                 uda.save_model("model_best.pth", epoch, True)
                 best = current
 
