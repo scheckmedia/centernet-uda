@@ -6,6 +6,15 @@ from backends.decode import decode_detection
 import yaml
 from importlib import import_module
 
+try:
+    import onnx
+    import onnx.utils
+    from onnxsim import simplify
+    has_simplify = True
+except BaseException:
+    has_simplify = False
+    pass
+
 
 class CenterNet(nn.Module):
     def __init__(self, backend, max_detections, is_rotated=False):
@@ -59,7 +68,7 @@ def build_model(experiment, model_spec, without_decode_detections,
 
 
 def export_model(experiment, model, model_name,
-                 input_shape, without_decode_detections):
+                 input_shape, without_decode_detections, simplify_model):
     shape = [1, ] + input_shape
     x = torch.randn(*shape, requires_grad=True)
     torch_out = model(x)
@@ -84,6 +93,27 @@ def export_model(experiment, model, model_name,
 
     print(f"Export model to {output_path} successful!")
 
+    if simplify_model:
+        print("Simplify model")
+        if not has_simplify:
+            print("Can't simplify model because ONNX Simplifier is not install")
+            print("Please install it: pip install onnx-simplifier")
+            return
+
+        onnx_model = onnx.load(output_path)
+        simplyfied_model, check = simplify(
+            onnx_model, input_shapes={"input": shape})
+        simplyfied_model = onnx.shape_inference.infer_shapes(simplyfied_model)
+        onnx_model = onnx.utils.polish_model(simplyfied_model)
+        onnx.checker.check_model(simplyfied_model)
+        onnx.checker.check_model(onnx_model)
+
+        output_path = experiment / \
+            f"centernet_{model_name}_{shape[2]}x{shape[3]}{suffix}_smpl.onnx"
+        onnx.save(simplyfied_model, output_path)
+
+        print(f"Export simplified model to {output_path} successful!")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -106,6 +136,10 @@ if __name__ == "__main__":
         "-wd", "--without_decode_detections", action="store_true",
         help="If given, CenterNet output will be the heads instead of boxes. \
             The reason for this is that boxes leads to problems with TensorRT.")
+    parser.add_argument(
+        "-s", "--simplify", action="store_true",
+        help="If given it will be tried to simplify the model using onnx-simplifier."
+    )
 
     args = parser.parse_args()
     experiment = Path(args.experiment)
@@ -144,4 +178,5 @@ if __name__ == "__main__":
         model,
         model_specs["name"],
         input_shape,
-        args.without_decode_detections)
+        args.without_decode_detections,
+        args.simplify)
