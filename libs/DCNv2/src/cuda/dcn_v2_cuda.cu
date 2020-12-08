@@ -10,39 +10,6 @@
 
 THCState *state = at::globalContext().lazyInitCUDA();
 
-static cublasOperation_t _cublasOpFromChar(char op) {
-    switch (op) {
-      case 'n':
-      case 'N':
-        return CUBLAS_OP_N;
-      case 't':
-      case 'T':
-        return CUBLAS_OP_T;
-      case 'c':
-      case 'C':
-        return CUBLAS_OP_C;
-    }
-    AT_ERROR(
-        "_cublasOpFromChar input should be 't', 'n' or 'c' but got `", op, "`");
-  }
-
-  static void _cublasAdjustLdLevel2(int64_t m, int64_t n, int64_t* lda) {
-    // Note: leading dimensions generally are checked that they are > 0
-    // and at least as big the result requires (even if the value won't
-    // be used).
-
-    // Q: Why does Level3 check trans but this doesn't?
-    // A: In level 2, the sizes (m, n) specify the size of A
-    // (independent of trans value). In level 3. the sizes (m, n, k)
-    // specify the sizes of op(A), op(B) where op depend on trans
-    // values.
-    if (n <= 1)
-      *lda = std::max<int64_t>(m, 1);
-  }
-
-
- //THCState *state = at::globalContext().lazyInitCUDA();
-
 // author: Charles Shang
 // https://github.com/torch/cunn/blob/master/lib/THCUNN/generic/SpatialConvolutionMM.cu
 
@@ -351,15 +318,21 @@ std::vector<at::Tensor> dcn_v2_cuda_backward(const at::Tensor &input,
                          grad_output_n.data<scalar_t>(), k_, 1.0f,
                          grad_weight.data<scalar_t>(), n_);
 
-        cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
-        cublasOperation_t op = _cublasOpFromChar('t');
-        _cublasAdjustLdLevel2(k_, m_, &k_);
-        scalar_t* grad_output_n_float = grad_output_n.data_ptr<scalar_t>();
-        scalar_t* one_float = ones.data_ptr<scalar_t>();
-        scalar_t alpha = 1.0;
-        scalar_t beta = 1.0;
-        cublasSgemv(handle, op, k_, m_, &alpha, grad_output_n_float,k_, one_float,1, &beta, grad_bias.data_ptr<scalar_t>(), 1);
-
+        // gradient w.r.t. bias
+        // long m_ = channels_out;
+        // long k__ = height_out * width_out;
+        // THCudaBlas_Sgemm(state,
+        //                  't', 'n',
+        //                  k_, m_, 1, 1.0f,
+        //                  grad_output_n.data<scalar_t>(), k_,
+        //                  ones.data<scalar_t>(), 1, 1.0f,
+        //                  grad_bias.data<scalar_t>(), 1);
+        THCudaBlas_Sgemm(state,
+            'N', 'N', 1, m_, k_, 1.0f,
+            ones.data<scalar_t>(), 1,
+            grad_output_n.data<scalar_t>(), k_,
+            1.0f,
+            grad_bias.data<scalar_t>(), 1);
     }
 
     return {
