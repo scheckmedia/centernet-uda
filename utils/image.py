@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+import cv2
 # https://github.com/xingyizhou/CenterNet/blob/master/src/lib/utils/image.py
 
 
@@ -134,18 +134,30 @@ def extract_ampl_phase(fft_im):
     return fft_amp, fft_pha
 
 
-def low_freq_mutate(amp_src, amp_trg, L=0.1):
+def low_freq_mutate(amp_src, amp_trg, L=0.1, use_circular=False):
     _, _, h, w = amp_src.size()
     b = (np.floor(np.amin((h, w)) * L)).astype(int)     # get b
-    amp_src[:, :, 0:b, 0:b] = amp_trg[:, :, 0:b, 0:b]      # top left
-    amp_src[:, :, 0:b, w - b:w] = amp_trg[:, :, 0:b, w - b:w]    # top right
-    amp_src[:, :, h - b:h, 0:b] = amp_trg[:, :, h - b:h, 0:b]    # bottom left
-    amp_src[:, :, h - b:h, w - b:w] = amp_trg[:,
-                                              :, h - b:h, w - b:w]  # bottom right
+
+    if use_circular:
+        axes = (int(h * L), int(w * L))
+        mask = np.zeros((h, w, 3), dtype=np.uint8)
+        mask = cv2.ellipse(mask, (0, 0), axes, 0, 0, 360,
+                           (255, 255, 255), -1).astype(np.bool)
+        mask = torch.from_numpy(mask.transpose(2, 0, 1)).to(amp_src.device)
+        amp_src = amp_src * mask + amp_trg * ~mask
+    else:
+
+        amp_src[:, :, 0:b, 0:b] = amp_trg[:, :, 0:b, 0:b]      # top left
+        amp_src[:, :, 0:b, w - b:w] = amp_trg[:,
+                                              :, 0:b, w - b:w]    # top right
+        amp_src[:, :, h - b:h, 0:b] = amp_trg[:,
+                                              :, h - b:h, 0:b]    # bottom left
+        amp_src[:, :, h - b:h, w - b:w] = amp_trg[:,
+                                                  :, h - b:h, w - b:w]  # bottom right
     return amp_src
 
 
-def low_freq_mutate_np(amp_src, amp_trg, L=0.1):
+def low_freq_mutate_np(amp_src, amp_trg, L=0.1, use_circular=False):
     a_src = np.fft.fftshift(amp_src, axes=(-2, -1))
     a_trg = np.fft.fftshift(amp_trg, axes=(-2, -1))
 
@@ -154,17 +166,27 @@ def low_freq_mutate_np(amp_src, amp_trg, L=0.1):
     c_h = np.floor(h / 2.0).astype(int)
     c_w = np.floor(w / 2.0).astype(int)
 
-    h1 = c_h - b
-    h2 = c_h + b + 1
-    w1 = c_w - b
-    w2 = c_w + b + 1
+    if use_circular:
+        axes = (int(h * L), int(w * L))
+        mask = np.zeros((h, w, 3), dtype=np.uint8)
+        mask = cv2.ellipse(mask, (c_w, c_h), axes, 0, 0, 360,
+                           (255, 255, 255), -1).astype(np.bool)
+        mask = mask.transpose(2, 0, 1)
+        a_src = a_trg * mask + a_src * ~mask
 
-    a_src[:, h1:h2, w1:w2] = a_trg[:, h1:h2, w1:w2]
+    else:
+        h1 = c_h - b
+        h2 = c_h + b + 1
+        w1 = c_w - b
+        w2 = c_w + b + 1
+
+        a_src[:, h1:h2, w1:w2] = a_trg[:, h1:h2, w1:w2]
+
     a_src = np.fft.ifftshift(a_src, axes=(-2, -1))
     return a_src
 
 
-def FDA_source_to_target(src_img, trg_img, L=0.1):
+def FDA_source_to_target(src_img, trg_img, L=0.1, use_circular=False):
     # exchange magnitude
     # input: src_img, trg_img
 
@@ -188,7 +210,7 @@ def FDA_source_to_target(src_img, trg_img, L=0.1):
     amp_src_ = low_freq_mutate(
         amp_src.clone().to(
             src_img.device), amp_trg.clone().to(
-            src_img.device), L=L)
+            src_img.device), L=L, use_circular=use_circular)
 
     # recompose fft of source
     fft_src_ = torch.zeros(fft_src.size(), dtype=torch.float)
@@ -208,7 +230,7 @@ def FDA_source_to_target(src_img, trg_img, L=0.1):
     return src_in_trg
 
 
-def FDA_source_to_target_np(src_img, trg_img, L=0.1):
+def FDA_source_to_target_np(src_img, trg_img, L=0.1, use_circular=False):
     # exchange magnitude
     # input: src_img, trg_img
 
@@ -224,7 +246,7 @@ def FDA_source_to_target_np(src_img, trg_img, L=0.1):
     amp_trg, pha_trg = np.abs(fft_trg_np), np.angle(fft_trg_np)
 
     # mutate the amplitude part of source with target
-    amp_src_ = low_freq_mutate_np(amp_src, amp_trg, L=L)
+    amp_src_ = low_freq_mutate_np(amp_src, amp_trg, L=L, use_circular=False)
 
     # mutated fft of source
     fft_src_ = amp_src_ * np.exp(1j * pha_src)

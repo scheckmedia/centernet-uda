@@ -6,6 +6,7 @@ model:
       beta: 0.01
       eta: 1.5
       entropy_weight: 0.0001
+      use_circular: True
 
 datasets:
   training:
