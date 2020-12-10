@@ -12,9 +12,9 @@ a CenterNet object detection network. But it also allows it to train baselines w
   - [x] Minimizing entropy with adversarial learning
 - [Domain Adaptation for Semantic Segmentation with Maximum Squares Loss](https://arxiv.org/abs/1909.13589)
   - [x] Max Squares minimization
-  - [ ] Image-wise Class-balanced Weighting Factor (MT I)
-  - [ ] Multi-level Self-produced guidance (MT I)
-- [ ] [FDA](https://arxiv.org/abs/2004.05498) (RP I)
+  - [ ] Image-wise Class-balanced Weighting Factor
+  - [ ] Multi-level Self-produced guidance
+- [x] [FDA](https://arxiv.org/abs/2004.05498)
 
 ## Installation
 
