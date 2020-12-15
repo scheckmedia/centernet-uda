@@ -87,7 +87,7 @@ def load_model(model, optimizer, scheduler, path, resume=False):
         return 1
 
     checkpoint = torch.load(path)
-    epoch = checkpoint["epoch"] if not resume else 0
+    epoch = checkpoint["epoch"] if resume else 0
     state_dict_ = checkpoint['state_dict']
     state_dict = {}
 
