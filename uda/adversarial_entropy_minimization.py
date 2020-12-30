@@ -2,6 +2,7 @@
 
 from uda.base import Model
 from losses.advent import AdventLoss
+import torch
 from torch import nn
 from torch.optim import Adam
 from utils.image import entropy_map
@@ -76,6 +77,9 @@ class AdversarialEntropyMinimization(Model):
 
     def step(self, data, is_training=True):
         for k in data:
+            if not isinstance(data[k], torch.Tensor):
+                continue
+
             data[k] = data[k].to(device=self.device, non_blocking=True)
 
         if is_training:

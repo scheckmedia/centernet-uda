@@ -1,5 +1,6 @@
 from uda.base import Model
 from losses.max_square import MaxSquareLoss
+import torch
 
 
 class MaxSquaresMinimization(Model):
@@ -21,6 +22,9 @@ class MaxSquaresMinimization(Model):
 
     def step(self, data, is_training=True):
         for k in data:
+            if not isinstance(data[k], torch.Tensor):
+                continue
+
             data[k] = data[k].to(device=self.device, non_blocking=True)
 
         if is_training:

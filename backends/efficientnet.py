@@ -19,6 +19,7 @@ class CenterEfficientNet(nn.Module):
             f'efficientnet_{variant}',
             pretrained=pretrained)
         self.inplanes = self.base._bn1.num_features
+        self.dim_feature_extractor = self.base._bn1.num_features
 
         if freeze_base:
             for layer in self.base.parameters():
@@ -51,13 +52,20 @@ class CenterEfficientNet(nn.Module):
                     padding=0))
             self.__setattr__(head, fc)
 
-    def forward(self, x):
-        x = self.base.extract_features(x)
-        x = self.deconv_layers(x)
+    def forward(self, x, return_features=False, head_only=False):
+        f = self.base.extract_features(x)
+        if head_only:
+            f = f.detach()
+
+        x = self.deconv_layers(f)
 
         z = {}
         for head in self.heads:
             z[head] = self.__getattr__(head)(x)
+
+        if return_features:
+            return z, f
+
         return z
 
     def _get_deconv_cfg(self, deconv_kernel, index):

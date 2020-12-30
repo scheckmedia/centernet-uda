@@ -141,7 +141,8 @@ def main(cfg: DictConfig) -> None:
     uda.to(device, is_multi_gpu)
 
     stats = {}
-    best = float("inf") if cfg.save_best_metric.mode == 'min' else -float("inf")
+    best = float(
+        "inf") if cfg.save_best_metric.mode == 'min' else -float("inf")
 
     if not cfg.test_only:
         for epoch in tqdm(

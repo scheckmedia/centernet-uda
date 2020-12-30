@@ -1,0 +1,63 @@
+experiment: ContrastiveSimSiam
+pretrained:
+# resume: /mnt/data/Projects/centernet-uda/outputs/entropy_minimization/model_last.pth
+model:
+  backend:
+    backend:
+    name: resnet
+    params:
+      num_layers: 101
+      num_classes: 6
+      pretrained: True
+  uda:
+    ContrastiveSimSiam:
+      warmup_steps: 50000
+
+datasets:
+  training:
+    params:
+      image_folder: /mnt/datasets_ssd/theodore_paper_25k_coco/images/
+      annotation_file: /mnt/datasets_ssd/theodore_paper_25k_coco/annotations/instances.json
+      augment_target_domain: True
+      target_domain_glob:
+        - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
+        - /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/images/*.jpg
+      is_contrastive: True
+      augmentation:
+        - Sometimes:
+            p: 0.8
+            then_list:
+              - AddToHue:
+                  value: [-128, 128]
+              - AddToBrightness:
+                  add: [-50, 50]
+              - MotionBlur:
+                  k: [3, 10]
+                  angle: [-90, 90]
+              - Affine:
+                  rotate: [-45, 45]
+              - Crop:
+                  percent: [0.0, 0.3]
+              - AdditiveGaussianNoise:
+                  scale: [0, 8]
+        - Fliplr:
+            p: 0.5
+        - Flipud:
+            p: 0.5
+  validation:
+    params:
+      input_size: [800, 800]
+
+optimizer:
+  name: Adam
+  params:
+    lr: 5e-4
+    weight_decay: 0.0001
+    # momentum: 0.9
+  scheduler: null
+epochs: 1000
+batch_size: 16
+score_threshold: 0.05
+gpu:
+  - 0
+  - 1

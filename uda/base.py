@@ -1,5 +1,5 @@
 import logging
-
+import torch
 import numpy as np
 from backends.decode import decode_detection
 from utils.helper import CustomDataParallel, load_model, save_model
@@ -30,6 +30,9 @@ class Model():
 
     def step(self, data, is_training=True):
         for k in data:
+            if not isinstance(data[k], torch.Tensor):
+                continue
+
             data[k] = data[k].to(device=self.device, non_blocking=True)
 
         if is_training:

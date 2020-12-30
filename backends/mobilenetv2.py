@@ -25,6 +25,7 @@ class CenterMobileNetV2(nn.Module):
 
         self.use_skip = use_skip
         self.inplanes = 1280
+        self.dim_feature_extractor = 1280
         self.deconv_with_bias = False
         self.down_ratio = 4
         self.rotated_boxes = rotated_boxes
@@ -92,7 +93,7 @@ class CenterMobileNetV2(nn.Module):
                     padding=0))
             self.__setattr__(head, fc)
 
-    def forward(self, x):
+    def forward(self, x, return_features=False, head_only=False):
         if self.use_skip:
             skip = {}
             for lid, layer in enumerate(self.base):
@@ -109,12 +110,18 @@ class CenterMobileNetV2(nn.Module):
                     x = sx + x
 
         else:
-            x = self.base(x)
-            x = self.deconv_layers(x)
+            f = self.base(x)
+            if head_only:
+                f = f.detach()
+            x = self.deconv_layers(f)
 
         z = {}
         for head in self.heads:
             z[head] = self.__getattr__(head)(x)
+
+        if return_features:
+            return z, f
+
         return z
 
     def _get_deconv_cfg(self, deconv_kernel, index):

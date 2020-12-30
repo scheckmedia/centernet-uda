@@ -495,9 +495,9 @@ class DLASeg(nn.Module):
                     fill_fc_weights(fc)
             self.__setattr__(head, fc)
 
-    def forward(self, x):
-        x = self.base(x)
-        x = self.dla_up(x)
+    def forward(self, x, return_features=False):
+        f = self.base(x)
+        x = self.dla_up(f)
 
         y = []
         for i in range(self.last_level - self.first_level):
@@ -507,18 +507,22 @@ class DLASeg(nn.Module):
         z = {}
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
+
+        if return_features:
+            return z, f
+
         return z
 
 
 def build(num_classes, head_conv=256,
-          down_ratio=4, freeze_base=False, rotated_boxes=False):
+          down_ratio=4, pretrained=True, freeze_base=False, rotated_boxes=False):
     heads = {
         'hm': num_classes,
         'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
     return DLASeg(f'dla34', heads,
-                  pretrained=True,
+                  pretrained=pretrained,
                   down_ratio=down_ratio,
                   final_kernel=1,
                   last_level=5,

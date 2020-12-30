@@ -1,5 +1,6 @@
 from uda.base import Model
 from losses.entropy import EntropyLoss
+import torch
 
 
 class EntropyMinimization(Model):
@@ -10,6 +11,9 @@ class EntropyMinimization(Model):
 
     def step(self, data, is_training=True):
         for k in data:
+            if not isinstance(data[k], torch.Tensor):
+                continue
+
             data[k] = data[k].to(device=self.device, non_blocking=True)
 
         if is_training:

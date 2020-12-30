@@ -28,7 +28,7 @@ class Dataset(data.Dataset):
             mean=(0.40789654, 0.44719302, 0.47026115),
             std=(0.28863828, 0.27408164, 0.27809835),
             augmentation=None, augment_target_domain=False, max_detections=150,
-            down_ratio=4):
+            down_ratio=4, is_contrastive=False):
         self.image_folder = Path(image_folder)
         self.coco = COCO(annotation_file)
         self.images = self.coco.getImgIds()
@@ -40,6 +40,7 @@ class Dataset(data.Dataset):
         self.std = np.array(std, dtype=np.float32).reshape(1, 1, 3)
         self.augmentation = augmentation
         self.num_classes = num_classes
+        self.is_contrastive = is_contrastive
         self.string_id_mapping = {}
         self.augment_target_domain = augment_target_domain
         self.cat_mapping = {v: i for i,
@@ -75,6 +76,38 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         img_id = self.images[index]
+        ret = self.get_augmented_source(img_id)
+        if self.is_contrastive:
+            ret_ = self.get_augmented_source(img_id)
+            ret['input_contrastive'] = ret_['input']
+
+        if len(self.target_domain_files):
+            target_img_path = np.random.choice(self.target_domain_files)
+            target_img = self.get_augmented_target(target_img_path)
+            ret['target_domain_input'] = target_img
+
+            if self.is_contrastive:
+                target_img_contrastive = self.get_augmented_target(
+                    target_img_path)
+                ret['target_domain_input_contrastive'] = target_img_contrastive
+
+        return ret
+
+    def get_augmented_target(self, target_img_path):
+        target_domain_img = np.array(
+            Image.open(target_img_path).convert("RGB"))
+
+        if self.augmentation is not None and self.augment_target_domain:
+            target_domain_img = self.augmentation(image=target_domain_img)
+
+        target_domain_img = self.resize(image=target_domain_img)
+        target_domain_img = np.array(
+            target_domain_img, dtype=np.float32) / 255.0
+        target_domain_img = (target_domain_img - self.mean) / self.std
+        target_domain_img = target_domain_img.transpose(2, 0, 1)
+        return target_domain_img
+
+    def get_augmented_source(self, img_id):
         file_name = self.coco.loadImgs(ids=[img_id])[0]['file_name']
         img_path = self.image_folder / file_name
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
@@ -94,22 +127,6 @@ class Dataset(data.Dataset):
             img_id = mapped_id
 
         ret['id'] = img_id
-
-        if len(self.target_domain_files):
-            target_domain_img = np.array(Image.open(
-                np.random.choice(self.target_domain_files)).convert("RGB"))
-
-            if self.augmentation is not None and self.augment_target_domain:
-                target_domain_img = self.augmentation(image=target_domain_img)
-
-            target_domain_img = self.resize(image=target_domain_img)
-            target_domain_img = np.array(
-                target_domain_img, dtype=np.float32) / 255.0
-            target_domain_img = (target_domain_img - self.mean) / self.std
-            target_domain_img = target_domain_img.transpose(2, 0, 1)
-
-            ret['target_domain_input'] = target_domain_img
-
         return ret
 
     def __get_default_coco(self, img, anns, num_objs):
