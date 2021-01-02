@@ -82,11 +82,11 @@ class Evaluator():
         self.num_workers = None
 
     def add_batch(self, pred_boxes, pred_classes, pred_scores,
-                  gt_boxes, gt_classes, gt_ids, gt_areas, image_shape):
+                  gt_boxes, gt_classes, gt_ids, gt_areas, image_shape, pred_kps=None, gt_kps=None):
         if self.pool is None:
-            self.pool = Pool(processes=self.num_workers)
+            self.pool = Pool(processes=self.num_workers + 1)
 
-        self.__convert_to_coco(
+        self.__convert_boxes_to_coco(
             pred_boxes,
             pred_classes,
             pred_scores,
@@ -96,6 +96,8 @@ class Evaluator():
             gt_areas,
             None,
             image_shape)
+
+        # todo add evaluation for keypoints
 
     def evaluate(self):
         existent_labels = sorted(self.existent_labels.keys())
@@ -221,7 +223,7 @@ class Evaluator():
 
         return results
 
-    def __convert_to_coco(
+    def __convert_boxes_to_coco(
             self, pred_bboxes, pred_labels, pred_scores, gt_bboxes, gt_classes,
             gt_ids, gt_areas, gt_crowdeds=None, image_shape=(3, 512, 512)):
         pred_bboxes = iter(pred_bboxes)

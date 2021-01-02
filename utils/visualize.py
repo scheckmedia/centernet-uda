@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib.pyplot import get_cmap
-from imgaug.augmentables import BoundingBox, Polygon
+from imgaug.augmentables import BoundingBox, Polygon, Keypoint
 from utils.box import rotate_bbox
 import cv2
 
@@ -22,7 +22,7 @@ class Visualizer:
 
     def visualize_detections(
             self, image, pred_boxes, pred_classes, pred_scores, gt_boxes,
-            gt_classes):
+            gt_classes, gt_kps=None, pred_kps=None):
 
         pred_img = (
             (image *
@@ -33,15 +33,22 @@ class Visualizer:
         gt_img = pred_img.copy()
 
         if gt_boxes.shape[-1] == 5:
-            return self.__draw_rotated_box(
+            pred_img, gt_img = self.__draw_rotated_boxes(
                 gt_img, gt_boxes, gt_classes, pred_img, pred_boxes,
                 pred_scores, pred_classes)
+        else:
+            pred_img, gt_img = self.__draw_boxes(gt_img, gt_boxes, gt_classes,
+                                                 pred_img, pred_boxes, pred_scores, pred_classes)
 
-        return self.__draw_box(gt_img, gt_boxes, gt_classes,
-                               pred_img, pred_boxes, pred_scores, pred_classes)
+        if pred_kps is not None:
+            pred_img, gt_img = self.__draw_keypoints(
+                gt_img, gt_kps, pred_img, pred_kps, pred_scores)
 
-    def __draw_box(self, gt_img, gt_boxes, gt_classes,
-                   pred_img, pred_boxes, pred_scores, pred_classes):
+        result = np.hstack([pred_img, gt_img])
+        return result.transpose(2, 0, 1)
+
+    def __draw_boxes(self, gt_img, gt_boxes, gt_classes,
+                     pred_img, pred_boxes, pred_scores, pred_classes):
         for i in range(gt_boxes.shape[0]):
             cid = int(gt_classes[i])
             bb = BoundingBox(*gt_boxes[i])
@@ -71,11 +78,10 @@ class Visualizer:
                 alpha=self.alpha,
                 height=self.font_size + 4)
 
-        result = np.hstack([pred_img, gt_img])
-        return result.transpose(2, 0, 1)
+        return pred_img, gt_img
 
-    def __draw_rotated_box(self, gt_img, gt_boxes, gt_classes,
-                           pred_img, pred_boxes, pred_scores, pred_classes):
+    def __draw_rotated_boxes(self, gt_img, gt_boxes, gt_classes,
+                             pred_img, pred_boxes, pred_scores, pred_classes):
 
         for i in range(gt_boxes.shape[0]):
             cid = int(gt_classes[i])
@@ -137,5 +143,22 @@ class Visualizer:
                 alpha=self.alpha,
                 height=self.font_size + 4)
 
-        result = np.hstack([pred_img, gt_img])
-        return result.transpose(2, 0, 1)
+        return pred_img, gt_img
+
+    def __draw_keypoints(self, gt_img, gt_kps,
+                         pred_img, pred_kps, pred_scores):
+        for i in range(gt_kps.shape[0]):
+            for p in gt_kps[i]:
+                kp = Keypoint(*p)
+                gt_img = kp.draw_on_image(
+                    gt_img, (0, 255, 255), self.alpha, 3)
+
+        for i in range(pred_kps.shape[0]):
+            if pred_scores[i] < self.score_threshold:
+                continue
+
+            for p in pred_kps[i]:
+                kp = Keypoint(*p)
+                pred_img = kp.draw_on_image(
+                    pred_img, (0, 255, 255), self.alpha, 3)
+        return pred_img, gt_img

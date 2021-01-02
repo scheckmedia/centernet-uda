@@ -166,7 +166,7 @@ class CenterMobileNetV2(nn.Module):
         return nn.Sequential(*layers)
 
 
-def build(num_classes, pretrained=True, freeze_base=False,
+def build(num_classes, num_keypoints=0, pretrained=True, freeze_base=False,
           use_dcn=False, use_skip=False, rotated_boxes=False):
 
     heads = {
@@ -174,6 +174,10 @@ def build(num_classes, pretrained=True, freeze_base=False,
         'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
+
+    if num_keypoints > 0:
+        heads['kps'] = num_keypoints * 2
+
     return CenterMobileNetV2(heads,
                              pretrained=pretrained,
                              freeze_base=freeze_base,

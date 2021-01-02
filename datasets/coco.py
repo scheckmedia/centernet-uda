@@ -3,7 +3,6 @@ from glob import glob
 from pathlib import Path
 
 import cv2
-import hydra
 import numpy as np
 from imgaug import augmenters as iaa
 from imgaug.augmentables import BoundingBox, BoundingBoxesOnImage, Keypoint, KeypointsOnImage
@@ -24,7 +23,7 @@ log = logging.getLogger(__name__)
 class Dataset(data.Dataset):
     def __init__(
             self, image_folder, annotation_file, input_size=(512, 512),
-            target_domain_glob=None, num_classes=80, rotated_boxes=False,
+            target_domain_glob=None, num_classes=80, num_keypoints=0, rotated_boxes=False,
             mean=(0.40789654, 0.44719302, 0.47026115),
             std=(0.28863828, 0.27408164, 0.27809835),
             augmentation=None, augment_target_domain=False, max_detections=150,
@@ -40,6 +39,7 @@ class Dataset(data.Dataset):
         self.std = np.array(std, dtype=np.float32).reshape(1, 1, 3)
         self.augmentation = augmentation
         self.num_classes = num_classes
+        self.num_keypoints = num_keypoints
         self.string_id_mapping = {}
         self.augment_target_domain = augment_target_domain
         self.cat_mapping = {v: i for i,
@@ -114,19 +114,44 @@ class Dataset(data.Dataset):
 
     def __get_default_coco(self, img, anns, num_objs):
         boxes = []
+        if self.num_keypoints > 0:
+            kpts = []
+
         for k in range(num_objs):
             ann = anns[k]
             bbox = self._coco_box_to_bbox(ann['bbox'])
             boxes.append(BoundingBox(*bbox))
 
+            if self.num_keypoints > 0:
+                kpt = [
+                    Keypoint(*x) for x in np.array(ann['keypoints']).reshape(-1, 3)[:, :2]]
+                kpts.extend(kpt)
+
         bbs = BoundingBoxesOnImage(boxes, shape=img.shape)
 
-        if self.augmentation is not None:
-            img_aug, bbs_aug = self.augmentation(image=img, bounding_boxes=bbs)
-        else:
-            img_aug, bbs_aug = np.copy(img), bbs.copy()
+        if self.num_keypoints > 0:
+            kpts = KeypointsOnImage(kpts, shape=img.shape)
 
-        img_aug, bbs_aug = self.resize(image=img_aug, bounding_boxes=bbs_aug)
+        if self.augmentation is not None:
+            if self.num_keypoints > 0:
+                img_aug, bbs_aug, kpts_aug = self.augmentation(
+                    image=img, bounding_boxes=bbs, keypoints=kpts)
+            else:
+                img_aug, bbs_aug = self.augmentation(
+                    image=img, bounding_boxes=bbs)
+        else:
+            if self.num_keypoints > 0:
+                img_aug, bbs_aug, kpts_aug = np.copy(
+                    img), bbs.copy(), kpts.copy()
+            else:
+                img_aug, bbs_aug = np.copy(img), bbs.copy()
+
+        if self.num_keypoints > 0:
+            img_aug, bbs_aug, kpts_aug = self.resize(
+                image=img_aug, bounding_boxes=bbs_aug, keypoints=kpts_aug)
+        else:
+            img_aug, bbs_aug = self.resize(
+                image=img_aug, bounding_boxes=bbs_aug)
 
         img = (img_aug.astype(np.float32) / 255.)
         inp = (img - self.mean) / self.std
@@ -138,14 +163,24 @@ class Dataset(data.Dataset):
 
         hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
         wh = np.zeros((self.max_detections, 2), dtype=np.float32)
-        dense_wh = np.zeros((2, output_h, output_w), dtype=np.float32)
         reg = np.zeros((self.max_detections, 2), dtype=np.float32)
         ind = np.zeros((self.max_detections), dtype=np.int64)
         reg_mask = np.zeros((self.max_detections), dtype=np.uint8)
         gt_det = np.zeros((self.max_detections, num_classes), dtype=np.float32)
         gt_areas = np.zeros((self.max_detections), dtype=np.float32)
 
-        bbs_aug = self.resize_out(bounding_boxes=bbs_aug)
+        if self.num_keypoints > 0:
+            kp = np.zeros(
+                (self.max_detections, self.num_keypoints * 2), dtype=np.float32)
+            bbs_aug, kpts_aug = self.resize_out(
+                bounding_boxes=bbs_aug, keypoints=kpts_aug)
+
+            gt_kp = np.zeros(
+                (self.max_detections, self.num_keypoints, 2), dtype=np.float32)
+            kp_reg_mask = np.zeros(
+                (self.max_detections, self.num_keypoints * 2), dtype=np.uint8)
+        else:
+            bbs_aug = self.resize_out(bounding_boxes=bbs_aug)
 
         for k in range(num_objs):
             ann = anns[k]
@@ -173,6 +208,15 @@ class Dataset(data.Dataset):
                 gt_det[k] = ([ct[0] - w / 2, ct[1] - h / 2,
                               ct[0] + w / 2, ct[1] + h / 2, 1, cls_id])
 
+                if self.num_keypoints > 0:
+                    valid = np.array(ann["keypoints"]).reshape(-1, 3)[:, -1]
+                    for i, p in enumerate(kpts_aug[k * self.num_keypoints: k * self.num_keypoints + self.num_keypoints]):
+                        kp[k][i * 2] = p.x - ct_int[0]
+                        kp[k][i * 2 + 1] = p.y - ct_int[1]
+                        kp_reg_mask[k, i * 2] = 1 if valid[i] == 2 else 0
+                        kp_reg_mask[k, i * 2 + 1] = 1 if valid[i] == 2 else 0
+                        gt_kp[k][i] = p.x, p.y
+
                 if "area" not in ann:
                     gt_areas[k] = w * h
                 else:
@@ -196,24 +240,32 @@ class Dataset(data.Dataset):
             'gt_areas': gt_areas,
         }
 
+        if self.num_keypoints > 0:
+            ret['kps'] = kp
+            ret['gt_kps'] = gt_kp
+            ret['kp_reg_mask'] = kp_reg_mask
+            del kpts_aug
+
         return ret
 
     def __get_rotated_coco(self, img, anns, num_objs):
-        kpts = []
+        box_kpts = []
         for k in range(num_objs):
             ann = get_annotation_with_angle(anns[k])
             ann[4] = np.radians(ann[4])
             rot = rotate_bbox(*ann)
-            kpts.extend([Keypoint(*x) for x in rot])
+            box_kpts.extend([Keypoint(*x) for x in rot])
 
-        kpts = KeypointsOnImage(kpts, shape=img.shape)
+        box_kpts = KeypointsOnImage(box_kpts, shape=img.shape)
 
         if self.augmentation is not None:
-            img_aug, kpts_aug = self.augmentation(image=img, keypoints=kpts)
+            img_aug, box_kpts_aug = self.augmentation(
+                image=img, keypoints=box_kpts)
         else:
-            img_aug, kpts_aug = np.copy(img), kpts.copy()
+            img_aug, box_kpts_aug = np.copy(img), box_kpts.copy()
 
-        img_aug, kpts_aug = self.resize(image=img_aug, keypoints=kpts_aug)
+        img_aug, box_kpts_aug = self.resize(
+            image=img_aug, keypoints=box_kpts_aug)
 
         img = (img_aug.astype(np.float32) / 255.)
         inp = (img - self.mean) / self.std
@@ -225,7 +277,6 @@ class Dataset(data.Dataset):
 
         hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
         wh = np.zeros((self.max_detections, 3), dtype=np.float32)
-        dense_wh = np.zeros((2, output_h, output_w), dtype=np.float32)
         reg = np.zeros((self.max_detections, 2), dtype=np.float32)
         ind = np.zeros((self.max_detections), dtype=np.int64)
         reg_mask = np.zeros((self.max_detections), dtype=np.uint8)
@@ -235,13 +286,13 @@ class Dataset(data.Dataset):
             dtype=np.float32)
         gt_areas = np.zeros((self.max_detections), dtype=np.float32)
 
-        kpts_aug = self.resize_out(keypoints=kpts_aug)
-        assert num_objs == len(kpts_aug) // 4
+        box_kpts_aug = self.resize_out(keypoints=box_kpts_aug)
+        assert num_objs == len(box_kpts_aug) // 4
 
         for k in range(num_objs):
             ann = anns[k]
             points = []
-            for p in kpts_aug[k * 4: k * 4 + 4]:
+            for p in box_kpts_aug[k * 4: k * 4 + 4]:
                 kp = list((np.clip(p.x, 0, output_w - 1),
                            np.clip(p.y, 0, output_h - 1)))
                 points.append(kp)
@@ -275,8 +326,8 @@ class Dataset(data.Dataset):
                 else:
                     gt_areas[k] = ann["area"]
 
-        del kpts
-        del kpts_aug
+        del box_kpts
+        del box_kpts_aug
         del img_aug
 
         gt_det = np.array(gt_det, dtype=np.float32) if len(

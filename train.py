@@ -19,6 +19,7 @@ def load_datasets(cfg, down_ratio, rotated_boxes):
                 "down_ratio": down_ratio,
                 "rotated_boxes": rotated_boxes,
                 "num_classes": cfg.model.backend.params.num_classes,
+                "num_keypoints": cfg.model.backend.params.num_keypoints,
                 "mean": cfg.normalize.mean,
                 "std": cfg.normalize.std}
 
@@ -141,7 +142,8 @@ def main(cfg: DictConfig) -> None:
     uda.to(device, is_multi_gpu)
 
     stats = {}
-    best = float("inf") if cfg.save_best_metric.mode == 'min' else -float("inf")
+    best = float(
+        "inf") if cfg.save_best_metric.mode == 'min' else -float("inf")
 
     if not cfg.test_only:
         for epoch in tqdm(

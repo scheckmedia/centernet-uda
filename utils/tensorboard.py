@@ -9,7 +9,7 @@ class TensorboardLogger:
         self.summary_writer = SummaryWriter('logs')
         self.visualizer = Visualizer(
             classes,
-            cfg.score_threshold,
+            cfg.tensorboard.score_threshold,
             cfg.normalize.mean,
             cfg.normalize.std,
             font_size=cfg.tensorboard.font_size,
@@ -31,7 +31,11 @@ class TensorboardLogger:
                 detections['pred_classes'][i],
                 detections['pred_scores'][i],
                 detections['gt_boxes'][i],
-                detections['gt_classes'][i])
+                detections['gt_classes'][i],
+                detections['gt_kps'][i] if 'gt_kps' in detections else None,
+                detections['pred_kps'][i] if 'pred_kps' in detections else None,
+            )
+
             self.summary_writer.add_image(
                 f'{tag}/detection_{ids[i]}', result, step)
             self.__num_logged_images += 1

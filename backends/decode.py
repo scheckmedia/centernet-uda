@@ -32,7 +32,7 @@ def _topk(scores, K=40):
     return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
 
 
-def decode_detection(heat, wh, reg=None, K=100, rotated=False):
+def decode_detection(heat, wh, reg=None, kps=None, K=100, rotated=False):
     batch, cat, height, width = heat.size()
 
     # heat = heat.sigmoid_()
@@ -62,5 +62,12 @@ def decode_detection(heat, wh, reg=None, K=100, rotated=False):
             xs, ys, wh[..., 0:1], wh[..., 1:2], wh[..., 2:3]
         ], dim=2)
     detections = torch.cat([bboxes, scores, clses], dim=2)
+
+    if kps is not None:
+        kps = _transpose_and_gather_feat(kps, inds)
+        kps = kps.view(batch, K, kps.size(2) // 2, 2)
+        kps[..., 0] += xs
+        kps[..., 1] += ys
+        return detections, kps
 
     return detections

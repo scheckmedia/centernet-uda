@@ -102,7 +102,7 @@ class CenterEfficientNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def build(num_classes, variant='b0', pretrained=True, freeze_base=False,
+def build(num_classes, variant='b0', num_keypoints=0, pretrained=True, freeze_base=False,
           rotated_boxes=False):
 
     if variant not in [f"b{x}" for x in range(0, 9)]:
@@ -114,6 +114,10 @@ def build(num_classes, variant='b0', pretrained=True, freeze_base=False,
         'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
+
+    if num_keypoints > 0:
+        heads['kps'] = num_keypoints * 2
+
     return CenterEfficientNet(variant, heads,
                               pretrained=pretrained,
                               freeze_base=freeze_base,

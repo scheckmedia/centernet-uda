@@ -77,8 +77,15 @@ class Model():
             src["hm"],
             src["wh"],
             src["reg"],
+            kps=src["kps"] if 'kps' in src else None,
             K=self.cfg.max_detections,
             rotated=self.cfg.model.backend.params.rotated_boxes)
+
+        if 'kps' in src:
+            dets, kps = dets
+            kps[..., 0:2] *= self.backend.down_ratio
+            kps = kps.detach().cpu().numpy()
+
         dets = dets.detach().cpu().numpy()
         dets[:, :, :4] *= self.backend.down_ratio
 
@@ -88,10 +95,14 @@ class Model():
         areas_gt = batch["gt_areas"].cpu().numpy()
         dets_gt[:, :, :4] *= self.backend.down_ratio
 
+        if 'kps' in src:
+            kps_gt = batch['gt_kps'].cpu().numpy() * self.backend.down_ratio
+
         gt_boxes = []
         gt_clss = []
         gt_ids = []
         gt_areas = []
+        gt_kps = []
 
         box_idx = 4
         cls_idx = 5
@@ -108,7 +119,10 @@ class Model():
             gt_ids.append(ids[i])
             gt_areas.append(areas_gt[i, mask[i]])
 
-        return {
+            if 'kps' in src:
+                gt_kps.append(kps_gt[i, mask[i]])
+
+        out = {
             'pred_boxes': dets[:, :, :box_idx],
             'pred_classes': dets[:, :, cls_idx].astype(np.int32),
             'pred_scores': dets[:, :, box_idx],
@@ -117,6 +131,12 @@ class Model():
             'gt_ids': gt_ids,
             'gt_areas': gt_areas
         }
+
+        if 'kps' in src:
+            out['gt_kps'] = gt_kps
+            out['pred_kps'] = kps
+
+        return out
 
     def load_model(self, path, resume=False):
         return load_model(self.backend, self.optimizer,

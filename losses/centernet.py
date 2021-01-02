@@ -5,7 +5,7 @@ import numpy as np
 
 
 class DetectionLoss(torch.nn.Module):
-    def __init__(self, hm_weight, wh_weight, off_weight,
+    def __init__(self, hm_weight, wh_weight, off_weight, kp_weight=None,
                  angle_weight=1.0, periodic=False):
         super().__init__()
         self.crit_hm = FocalLoss(weight=hm_weight)
@@ -16,8 +16,13 @@ class DetectionLoss(torch.nn.Module):
             wh_weight,
             angle_weight)
 
+        self.with_keypoints = False
+        if kp_weight is not None:
+            self.crit_kp = RegL1Loss(kp_weight, is_kp=True)
+            self.with_keypoints = True
+
     def forward(self, output, batch):
-        hm_loss, wh_loss, off_loss = 0.0, 0.0, 0.0
+        hm_loss, wh_loss, off_loss, kp_loss = 0.0, 0.0, 0.0, 0.0
 
         output['hm'] = _sigmoid(output['hm'])
 
@@ -29,8 +34,18 @@ class DetectionLoss(torch.nn.Module):
 
         loss = hm_loss + wh_loss + off_loss
 
+        if self.with_keypoints:
+            kp_loss += self.crit_kp(output['kps'], batch['kp_reg_mask'],
+                                    batch['ind'], batch['kps'])
+
+            loss += kp_loss
+
         loss_stats = {'centernet_loss': loss, 'hm_loss': hm_loss,
                       'wh_loss': wh_loss, 'off_loss': off_loss}
+
+        if self.with_keypoints:
+            loss_stats['kp_loss'] = kp_loss
+
         return loss, loss_stats
 
 
@@ -74,14 +89,16 @@ class FocalLoss(torch.nn.Module):
 
 
 class RegL1Loss(torch.nn.Module):
-    def __init__(self, weight=1.0, angle_weight=1.0):
+    def __init__(self, weight=1.0, angle_weight=1.0, is_kp=False):
         super().__init__()
         self.weight = weight
         self.angle_weight = angle_weight
+        self.is_kp = is_kp
 
     def forward(self, output, mask, ind, target):
         pred = _transpose_and_gather_feat(output, ind)
-        mask = mask.unsqueeze(2).expand_as(pred).float()
+        mask = mask.unsqueeze(2).expand_as(
+            pred).float() if not self.is_kp else mask.float()
 
         pred *= mask
         target *= mask
@@ -109,6 +126,22 @@ class RegL1Loss(torch.nn.Module):
             loss *= self.weight
 
         return loss
+
+
+class L1Loss(torch.nn.Module):
+    def __init__(self, weight=1.0, is_smooth=False):
+        super().__init__()
+        self.weight = weight
+        self.is_smooth = is_smooth
+
+    def forward(self, output, mask, ind, target):
+        pred = _transpose_and_gather_feat(output, ind)
+        mask = mask.unsqueeze(2).expand_as(pred).float()
+
+        if self.is_smooth:
+            return F.smooth_l1_loss(pred * mask, target * mask, reduction='mean')
+
+        return F.l1_loss(pred * mask, target * mask, reduction='mean')
 
 
 class PeriodicRegL1Loss(torch.nn.Module):

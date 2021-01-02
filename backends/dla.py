@@ -510,13 +510,17 @@ class DLASeg(nn.Module):
         return z
 
 
-def build(num_classes, head_conv=256,
+def build(num_classes, num_keypoints=0, head_conv=256,
           down_ratio=4, freeze_base=False, rotated_boxes=False):
     heads = {
         'hm': num_classes,
         'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
+
+    if num_keypoints > 0:
+        heads['kps'] = num_keypoints * 2
+
     return DLASeg(f'dla34', heads,
                   pretrained=True,
                   down_ratio=down_ratio,

@@ -11,6 +11,7 @@ RESNET_MODELS = {
     152: 2048
 }
 
+
 class CenterResNet(nn.Module):
     def __init__(self, num_layers, heads, pretrained, freeze_base=False, rotated_boxes=False):
         super(CenterResNet, self).__init__()
@@ -22,7 +23,8 @@ class CenterResNet(nn.Module):
         self.deconv_with_bias = False
         self.down_ratio = 4
         self.rotated_boxes = rotated_boxes
-        resnet = torch.hub.load('pytorch/vision:v0.6.0', base_name, pretrained=pretrained)
+        resnet = torch.hub.load('pytorch/vision:v0.6.0',
+                                base_name, pretrained=pretrained)
         # skip remove pooling and fc layer from resnet
         self.base = torch.nn.Sequential(*(list(resnet.children())[:-2]))
 
@@ -43,7 +45,7 @@ class CenterResNet(nn.Module):
                 nn.Conv2d(256, head_conv, kernel_size=3, padding=1, bias=True),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(head_conv, num_output,
-                    kernel_size=1, stride=1, padding=0)
+                          kernel_size=1, stride=1, padding=0)
             )
             self.__setattr__(head, fc)
 
@@ -96,7 +98,8 @@ class CenterResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-def build(num_layers, num_classes, pretrained=True, freeze_base=False, rotated_boxes=False):
+
+def build(num_layers, num_classes, num_keypoints=0, pretrained=True, freeze_base=False, rotated_boxes=False):
 
     assert num_layers in RESNET_MODELS.keys()
 
@@ -105,7 +108,11 @@ def build(num_layers, num_classes, pretrained=True, freeze_base=False, rotated_b
         'wh': 2 if not rotated_boxes else 3,
         'reg': 2
     }
+
+    if num_keypoints > 0:
+        heads['kps'] = num_keypoints * 2
+
     return CenterResNet(num_layers, heads,
-                  pretrained=pretrained,
-                  freeze_base=freeze_base,
-                  rotated_boxes=rotated_boxes)
+                        pretrained=pretrained,
+                        freeze_base=freeze_base,
+                        rotated_boxes=rotated_boxes)

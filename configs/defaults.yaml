@@ -14,6 +14,7 @@ model:
     name: dla
     params:
       num_classes: 6
+      num_keypoints: 0
       rotated_boxes: False
     loss:
       name: centernet.DetectionLoss
@@ -98,11 +99,12 @@ evaluation:
 
 tensorboard:
   num_visualizations: 50
+  score_threshold: 0.2
   font_size: 12
   alpha: 0.7
 
 max_detections: 150
-score_threshold: 0.2
+score_threshold: 0.0
 epochs: 100
 batch_size: 16
 num_workers: 6
