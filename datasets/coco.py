@@ -213,8 +213,11 @@ class Dataset(data.Dataset):
                     for i, p in enumerate(kpts_aug[k * self.num_keypoints: k * self.num_keypoints + self.num_keypoints]):
                         kp[k][i * 2] = p.x - ct_int[0]
                         kp[k][i * 2 + 1] = p.y - ct_int[1]
-                        kp_reg_mask[k, i * 2] = 1 if valid[i] == 2 else 0
-                        kp_reg_mask[k, i * 2 + 1] = 1 if valid[i] == 2 else 0
+
+                        is_valid = valid[i] == 2 and not p.is_out_of_image(
+                            (output_w, output_w))
+                        kp_reg_mask[k, i * 2] = int(is_valid)
+                        kp_reg_mask[k, i * 2 + 1] = int(is_valid)
                         gt_kp[k][i] = p.x, p.y
 
                 if "area" not in ann:
