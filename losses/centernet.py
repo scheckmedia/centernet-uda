@@ -6,7 +6,7 @@ import numpy as np
 
 class DetectionLoss(torch.nn.Module):
     def __init__(self, hm_weight, wh_weight, off_weight, kp_weight=None,
-                 angle_weight=1.0, periodic=False):
+                 angle_weight=1.0, periodic=False, kp_indices=None):
         super().__init__()
         self.crit_hm = FocalLoss(weight=hm_weight)
         self.crit_reg = RegL1Loss(off_weight)
@@ -17,9 +17,10 @@ class DetectionLoss(torch.nn.Module):
             angle_weight)
 
         self.with_keypoints = False
-        if kp_weight is not None:
-            self.crit_kp = RegL1Loss(kp_weight, is_kp=True)
+        self.kp_distance_indices = None
+        if kp_weight is not None or kp_indices is not None:
             self.with_keypoints = True
+            self.crit_kp = KPSL1Loss(kp_weight, kp_indices)
 
     def forward(self, output, batch):
         hm_loss, wh_loss, off_loss, kp_loss = 0.0, 0.0, 0.0, 0.0
@@ -89,16 +90,14 @@ class FocalLoss(torch.nn.Module):
 
 
 class RegL1Loss(torch.nn.Module):
-    def __init__(self, weight=1.0, angle_weight=1.0, is_kp=False):
+    def __init__(self, weight=1.0, angle_weight=1.0):
         super().__init__()
         self.weight = weight
         self.angle_weight = angle_weight
-        self.is_kp = is_kp
 
     def forward(self, output, mask, ind, target):
         pred = _transpose_and_gather_feat(output, ind)
-        mask = mask.unsqueeze(2).expand_as(
-            pred).float() if not self.is_kp else mask.float()
+        mask = mask.unsqueeze(2).expand_as(pred).float()
 
         pred *= mask
         target *= mask
@@ -128,20 +127,54 @@ class RegL1Loss(torch.nn.Module):
         return loss
 
 
-class L1Loss(torch.nn.Module):
-    def __init__(self, weight=1.0, is_smooth=False):
+class KPSL1Loss(torch.nn.Module):
+    def __init__(self, weight=1.0, kps_weight_indices=None,
+                 distance_weight=0.1):
         super().__init__()
         self.weight = weight
-        self.is_smooth = is_smooth
+        self.distance_weight = distance_weight
+        self.kps_weight_indices = torch.tensor(kps_weight_indices)
 
     def forward(self, output, mask, ind, target):
         pred = _transpose_and_gather_feat(output, ind)
-        mask = mask.unsqueeze(2).expand_as(pred).float()
+        mask = mask.float()
 
-        if self.is_smooth:
-            return F.smooth_l1_loss(pred * mask, target * mask, reduction='mean')
+        pred *= mask
+        target *= mask
 
-        return F.l1_loss(pred * mask, target * mask, reduction='mean')
+        loss = F.l1_loss(pred, target, size_average=False)
+        loss = loss / (mask.sum() + 1e-4)
+        loss *= self.weight
+
+        if self.kps_weight_indices is not None:
+            n, c, k = target.size()
+            k = k // 2
+
+            p_a = pred.view(n, c, k, 2)[:, :, self.kps_weight_indices[:, 0], :]
+            p_b = pred.view(n, c, k, 2)[:, :, self.kps_weight_indices[:, 1], :]
+
+            t_a = target.view(
+                n, c, k, 2)[
+                :, :, self.kps_weight_indices[:, 0],
+                :]
+            t_b = target.view(
+                n, c, k, 2)[
+                :, :, self.kps_weight_indices[:, 1],
+                :]
+
+            pred_distances = torch.abs(p_a - p_b).sum(-1)
+            target_distances = torch.abs(t_a - t_b).sum(-1)
+
+            dist_loss = F.l1_loss(
+                pred_distances,
+                target_distances,
+                size_average=False)
+            dist_loss = dist_loss / (mask.sum() + 1e-4)
+            dist_loss *= self.distance_weight
+
+            loss += dist_loss
+
+        return loss
 
 
 class PeriodicRegL1Loss(torch.nn.Module):
@@ -162,7 +195,8 @@ class PeriodicRegL1Loss(torch.nn.Module):
         target_wh = target[..., 0:2]
         target_angle = target[..., 2:3]
 
-        # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
+        # loss = F.l1_loss(pred * mask, target * mask,
+        # reduction='elementwise_mean')
         loss = F.l1_loss(pred_wh, target_wh, size_average=False)
         loss = loss / (mask.sum() + 1e-4)
 
