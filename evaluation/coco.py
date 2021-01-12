@@ -81,8 +81,9 @@ class Evaluator():
         self.pool = None
         self.num_workers = None
 
-    def add_batch(self, pred_boxes, pred_classes, pred_scores,
-                  gt_boxes, gt_classes, gt_ids, gt_areas, image_shape, pred_kps=None, gt_kps=None):
+    def add_batch(
+            self, pred_boxes, pred_classes, pred_scores, gt_boxes, gt_classes,
+            gt_ids, gt_areas, image_shape, pred_kps=None, gt_kps=None):
         if self.pool is None:
             self.pool = Pool(processes=self.num_workers + 1)
 
@@ -190,7 +191,9 @@ class Evaluator():
         self.ids.clear()
         self.pred_annos.clear()
         self.gt_annos.clear()
+        self.pool.terminate()
         self.pool.close()
+        self.pool.join()
         self.pool = None
         self.__id_counter = 0
 
