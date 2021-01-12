@@ -34,7 +34,7 @@ datasets:
       annotation_file: /mnt/datasets_ssd/theodore_plus/coco/annotations/instances.json
       target_domain_glob:
         - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
-        - /mnt/datasets_ssd/CEPDOF/**/*.jpg
+        - /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/images/*.jpg
       augmentation:
         - Sometimes:
             p: 0.8
