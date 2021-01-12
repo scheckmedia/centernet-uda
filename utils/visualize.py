@@ -37,8 +37,9 @@ class Visualizer:
                 gt_img, gt_boxes, gt_classes, pred_img, pred_boxes,
                 pred_scores, pred_classes)
         else:
-            pred_img, gt_img = self.__draw_boxes(gt_img, gt_boxes, gt_classes,
-                                                 pred_img, pred_boxes, pred_scores, pred_classes)
+            pred_img, gt_img = self.__draw_boxes(
+                gt_img, gt_boxes, gt_classes, pred_img, pred_boxes,
+                pred_scores, pred_classes)
 
         if pred_kps is not None:
             pred_img, gt_img = self.__draw_keypoints(
