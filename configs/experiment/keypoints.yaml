@@ -1,4 +1,4 @@
-experiment: keypoints
+experiment: keypoints_distance
 pretrained:
 model:
   backend:
@@ -11,9 +11,10 @@ model:
       name: centernet.DetectionLoss
       params:
         kp_weight: 1.0
+        kp_indices: [[0, 1], [0, 4], [1, 4], [2, 3], [1, 2], [4, 3]]
   uda:
     EntropyMinimization:
-      entropy_weight: 0.0001
+      entropy_weight: 0.001
 
 datasets:
   training:
@@ -34,8 +35,8 @@ optimizer:
   scheduler:
     name: CosineAnnealingLR
     params:
-      T_max: 10
-      eta_min: 1e-7
+      T_max: 20
+      eta_min: 1e-8
 score_threshold: 0.01
 num_workers: 6
 batch_size: 13
