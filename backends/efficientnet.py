@@ -3,14 +3,23 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 
+# key = deconv layer index, value = feature extractor layer index
+# all commented output shapes are for input size of 512x512
+SKIP_MAPPING = {
+    3: 4,  # cx64x64
+    0: 9  # cx128x128
+}
+
+SKIP_MAPPING_REVERSED = {v: k for k, v in SKIP_MAPPING.items()}
+
 
 class CenterEfficientNet(nn.Module):
     def __init__(self, variant, heads, pretrained,
-                 freeze_base=False, rotated_boxes=False):
+                 freeze_base=False, use_skip=False, rotated_boxes=False):
         super(CenterEfficientNet, self).__init__()
 
         head_conv = 64
-
+        self.use_skip = use_skip
         self.deconv_with_bias = False
         self.down_ratio = 4
         self.rotated_boxes = rotated_boxes
@@ -30,6 +39,15 @@ class CenterEfficientNet(nn.Module):
             self.deconv_layer_channels,
             [4, 4, 4],
         )
+
+        if self.use_skip:
+            for deconv_id, fe_id in SKIP_MAPPING.items():
+                in_channels = self.base._blocks[fe_id]._project_conv.out_channels
+                out_channels = self.deconv_layers[deconv_id].out_channels
+
+                self.__setattr__(
+                    f"skip_{deconv_id}", nn.Conv2d(
+                        in_channels, out_channels, 1, padding=0))
 
         self.heads = heads
         for head in sorted(self.heads):
@@ -52,8 +70,32 @@ class CenterEfficientNet(nn.Module):
             self.__setattr__(head, fc)
 
     def forward(self, x):
-        x = self.base.extract_features(x)
-        x = self.deconv_layers(x)
+        if self.use_skip:
+            skip = {}
+            x = self.base._swish(self.base._bn0(self.base._conv_stem(x)))
+            # Blocks
+            for idx, block in enumerate(self.base._blocks):
+                drop_connect_rate = self.base._global_params.drop_connect_rate
+                if drop_connect_rate:
+                    # scale drop connect_rate
+                    drop_connect_rate *= float(idx) / len(self.base._blocks)
+                x = block(x, drop_connect_rate=drop_connect_rate)
+
+                if idx in SKIP_MAPPING.values():
+                    skip[SKIP_MAPPING_REVERSED[idx]] = x
+
+            x = self.base._swish(self.base._bn1(self.base._conv_head(x)))
+
+            for lid, layer in enumerate(self.deconv_layers):
+                x = layer(x)
+
+                if lid in skip:
+                    sx = self.__getattr__(f"skip_{lid}")(skip[lid])
+                    x = sx + x
+
+        else:
+            x = self.base.extract_features(x)
+            x = self.deconv_layers(x)
 
         z = {}
         for head in self.heads:
@@ -102,8 +144,8 @@ class CenterEfficientNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def build(num_classes, variant='b0', num_keypoints=0, pretrained=True, freeze_base=False,
-          rotated_boxes=False):
+def build(num_classes, variant='b0', num_keypoints=0, pretrained=True,
+          freeze_base=False, rotated_boxes=False, use_skip=False):
 
     if variant not in [f"b{x}" for x in range(0, 9)]:
         raise NotImplementedError(
@@ -121,4 +163,5 @@ def build(num_classes, variant='b0', num_keypoints=0, pretrained=True, freeze_ba
     return CenterEfficientNet(variant, heads,
                               pretrained=pretrained,
                               freeze_base=freeze_base,
-                              rotated_boxes=rotated_boxes)
+                              rotated_boxes=rotated_boxes,
+                              use_skip=use_skip)
