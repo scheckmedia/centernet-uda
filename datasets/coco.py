@@ -23,8 +23,8 @@ log = logging.getLogger(__name__)
 class Dataset(data.Dataset):
     def __init__(
             self, image_folder, annotation_file, input_size=(512, 512),
-            target_domain_glob=None, num_classes=80, num_keypoints=0, rotated_boxes=False,
-            mean=(0.40789654, 0.44719302, 0.47026115),
+            target_domain_glob=None, num_classes=80, num_keypoints=0,
+            rotated_boxes=False, mean=(0.40789654, 0.44719302, 0.47026115),
             std=(0.28863828, 0.27408164, 0.27809835),
             augmentation=None, augment_target_domain=False, max_detections=150,
             down_ratio=4):
@@ -123,8 +123,13 @@ class Dataset(data.Dataset):
             boxes.append(BoundingBox(*bbox))
 
             if self.num_keypoints > 0:
+                if 'keypoints' not in ann:
+                    ann['keypoints'] = np.zeros((3 * self.num_keypoints,))
+
                 kpt = [
-                    Keypoint(*x) for x in np.array(ann['keypoints']).reshape(-1, 3)[:, :2]]
+                    Keypoint(*x)
+                    for x in np.array(ann['keypoints']).reshape(-1, 3)
+                    [:, : 2]]
                 kpts.extend(kpt)
 
         bbs = BoundingBoxesOnImage(boxes, shape=img.shape)
@@ -171,7 +176,9 @@ class Dataset(data.Dataset):
 
         if self.num_keypoints > 0:
             kp = np.zeros(
-                (self.max_detections, self.num_keypoints * 2), dtype=np.float32)
+                (self.max_detections,
+                 self.num_keypoints * 2),
+                dtype=np.float32)
             bbs_aug, kpts_aug = self.resize_out(
                 bounding_boxes=bbs_aug, keypoints=kpts_aug)
 
@@ -210,7 +217,8 @@ class Dataset(data.Dataset):
 
                 if self.num_keypoints > 0:
                     valid = np.array(ann["keypoints"]).reshape(-1, 3)[:, -1]
-                    for i, p in enumerate(kpts_aug[k * self.num_keypoints: k * self.num_keypoints + self.num_keypoints]):
+                    for i, p in enumerate(
+                            kpts_aug[k * self.num_keypoints: k * self.num_keypoints + self.num_keypoints]):
                         kp[k][i * 2] = p.x - ct_int[0]
                         kp[k][i * 2 + 1] = p.y - ct_int[1]
 
