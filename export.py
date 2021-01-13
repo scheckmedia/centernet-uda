@@ -75,7 +75,7 @@ def export_model(experiment, model, model_name,
 
     outputs = ['output']
     if without_decode_detections:
-        outputs.extend(['wh', 'rg'])
+        outputs = list(torch_out.keys())
 
     suffix = '_wd' if without_decode_detections else ''
     output_path = experiment / \
