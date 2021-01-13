@@ -5,8 +5,10 @@ import numpy as np
 
 
 class DetectionLoss(torch.nn.Module):
-    def __init__(self, hm_weight, wh_weight, off_weight, kp_weight=None,
-                 angle_weight=1.0, periodic=False, kp_indices=None):
+    def __init__(
+            self, hm_weight, wh_weight, off_weight, kp_weight=None,
+            angle_weight=1.0, periodic=False, kp_indices=None,
+            kp_distance_weight=0.1):
         super().__init__()
         self.crit_hm = FocalLoss(weight=hm_weight)
         self.crit_reg = RegL1Loss(off_weight)
@@ -20,7 +22,7 @@ class DetectionLoss(torch.nn.Module):
         self.kp_distance_indices = None
         if kp_weight is not None or kp_indices is not None:
             self.with_keypoints = True
-            self.crit_kp = KPSL1Loss(kp_weight, kp_indices)
+            self.crit_kp = KPSL1Loss(kp_weight, kp_indices, kp_distance_weight)
 
     def forward(self, output, batch):
         hm_loss, wh_loss, off_loss, kp_loss = 0.0, 0.0, 0.0, 0.0
