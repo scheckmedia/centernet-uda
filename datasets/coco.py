@@ -44,7 +44,7 @@ class Dataset(data.Dataset):
         self.augment_target_domain = augment_target_domain
         self.cat_mapping = {v: i for i,
                             v in enumerate(range(1, num_classes + 1))}
-        self.classes = {y: self.coco.cats[x]
+        self.classes = {y: self.coco.cats[x] if x in self.coco.cats else ''
                         for x, y in self.cat_mapping.items()}
         assert len(input_size) == 2
 
@@ -146,10 +146,9 @@ class Dataset(data.Dataset):
                     image=img, bounding_boxes=bbs)
         else:
             if self.num_keypoints > 0:
-                img_aug, bbs_aug, kpts_aug = np.copy(
-                    img), bbs.copy(), kpts.copy()
-            else:
-                img_aug, bbs_aug = np.copy(img), bbs.copy()
+                kpts_aug = kpts.copy()
+
+            img_aug, bbs_aug = np.copy(img), bbs.copy()
 
         if self.num_keypoints > 0:
             img_aug, bbs_aug, kpts_aug = self.resize(
@@ -179,13 +178,13 @@ class Dataset(data.Dataset):
                 (self.max_detections,
                  self.num_keypoints * 2),
                 dtype=np.float32)
-            bbs_aug, kpts_aug = self.resize_out(
-                bounding_boxes=bbs_aug, keypoints=kpts_aug)
-
             gt_kp = np.zeros(
                 (self.max_detections, self.num_keypoints, 2), dtype=np.float32)
             kp_reg_mask = np.zeros(
                 (self.max_detections, self.num_keypoints * 2), dtype=np.uint8)
+
+            bbs_aug, kpts_aug = self.resize_out(
+                bounding_boxes=bbs_aug, keypoints=kpts_aug)
         else:
             bbs_aug = self.resize_out(bounding_boxes=bbs_aug)
 
@@ -261,22 +260,55 @@ class Dataset(data.Dataset):
 
     def __get_rotated_coco(self, img, anns, num_objs):
         box_kpts = []
+        if self.num_keypoints > 0:
+            kpts = []
+
         for k in range(num_objs):
-            ann = get_annotation_with_angle(anns[k])
-            ann[4] = np.radians(ann[4])
-            rot = rotate_bbox(*ann)
+            ann = anns[k]
+            ann_rotated = get_annotation_with_angle(ann)
+            ann_rotated[4] = np.radians(ann_rotated[4])
+            rot = rotate_bbox(*ann_rotated)
             box_kpts.extend([Keypoint(*x) for x in rot])
+
+            if self.num_keypoints > 0:
+                if 'keypoints' not in ann:
+                    ann['keypoints'] = np.zeros((3 * self.num_keypoints,))
+
+                kpt = [
+                    Keypoint(*x)
+                    for x in np.array(ann['keypoints']).reshape(-1, 3)
+                    [:, : 2]]
+                kpts.extend(kpt)
 
         box_kpts = KeypointsOnImage(box_kpts, shape=img.shape)
 
+        if self.num_keypoints > 0:
+            kpts = KeypointsOnImage(kpts, shape=img.shape)
+
         if self.augmentation is not None:
-            img_aug, box_kpts_aug = self.augmentation(
-                image=img, keypoints=box_kpts)
+            to_aug = [box_kpts]
+            if self.num_keypoints > 0:
+                to_aug.append(kpts)
+
+            img_aug, auged = self.augmentation(image=img, keypoints=to_aug)
+
+            box_kpts_aug = auged[0]
+
+            if self.num_keypoints > 0:
+                kpts_aug = auged[1]
+
         else:
+            if self.num_keypoints > 0:
+                kpts_aug = kpts.copy()
+
             img_aug, box_kpts_aug = np.copy(img), box_kpts.copy()
 
+        # seems to be a bug if keypoints is a list of KeypointsOnImage
         img_aug, box_kpts_aug = self.resize(
             image=img_aug, keypoints=box_kpts_aug)
+        if self.num_keypoints > 0:
+            kpts_aug = self.resize(keypoints=kpts_aug)
+        # end workaround
 
         img = (img_aug.astype(np.float32) / 255.)
         inp = (img - self.mean) / self.std
@@ -297,16 +329,34 @@ class Dataset(data.Dataset):
             dtype=np.float32)
         gt_areas = np.zeros((self.max_detections), dtype=np.float32)
 
-        box_kpts_aug = self.resize_out(keypoints=box_kpts_aug)
+        if self.num_keypoints > 0:
+            kp = np.zeros(
+                (self.max_detections,
+                 self.num_keypoints * 2),
+                dtype=np.float32)
+            gt_kp = np.zeros(
+                (self.max_detections, self.num_keypoints, 2), dtype=np.float32)
+            kp_reg_mask = np.zeros(
+                (self.max_detections, self.num_keypoints * 2), dtype=np.uint8)
+
+        to_aug = [box_kpts_aug]
+        if self.num_keypoints > 0:
+            to_aug.append(kpts_aug)
+
+        auged = self.resize_out(keypoints=to_aug)
+        box_kpts_aug = auged[0]
+        if self.num_keypoints > 0:
+            kpts_aug = auged[1]
+
         assert num_objs == len(box_kpts_aug) // 4
 
         for k in range(num_objs):
             ann = anns[k]
             points = []
             for p in box_kpts_aug[k * 4: k * 4 + 4]:
-                kp = list((np.clip(p.x, 0, output_w - 1),
-                           np.clip(p.y, 0, output_h - 1)))
-                points.append(kp)
+                box_kp = list((np.clip(p.x, 0, output_w - 1),
+                               np.clip(p.y, 0, output_h - 1)))
+                points.append(box_kp)
 
             points = np.array(points).astype(np.float32)
             cv_ct, cv_wh, cv_angle = cv2.minAreaRect(points)
@@ -332,6 +382,19 @@ class Dataset(data.Dataset):
                 reg_mask[k] = 1
                 gt_det[k] = ([ct[0], ct[1], w, h, angle, 1, cls_id])
 
+                if self.num_keypoints > 0:
+                    valid = np.array(ann["keypoints"]).reshape(-1, 3)[:, -1]
+                    for i, p in enumerate(
+                            kpts_aug[k * self.num_keypoints: k * self.num_keypoints + self.num_keypoints]):
+                        kp[k][i * 2] = p.x - ct_int[0]
+                        kp[k][i * 2 + 1] = p.y - ct_int[1]
+
+                        is_valid = valid[i] == 2 and not p.is_out_of_image(
+                            (output_w, output_w))
+                        kp_reg_mask[k, i * 2] = int(is_valid)
+                        kp_reg_mask[k, i * 2 + 1] = int(is_valid)
+                        gt_kp[k][i] = p.x, p.y
+
                 if "area" not in ann:
                     gt_areas[k] = w * h
                 else:
@@ -354,6 +417,12 @@ class Dataset(data.Dataset):
             'gt_dets': gt_det,
             'gt_areas': gt_areas,
         }
+
+        if self.num_keypoints > 0:
+            ret['kps'] = kp
+            ret['gt_kps'] = gt_kp
+            ret['kp_reg_mask'] = kp_reg_mask
+            del kpts_aug
 
         return ret
 
