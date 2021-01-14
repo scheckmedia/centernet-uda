@@ -135,7 +135,8 @@ class KPSL1Loss(torch.nn.Module):
         super().__init__()
         self.weight = weight
         self.distance_weight = distance_weight
-        self.kps_weight_indices = torch.tensor(kps_weight_indices)
+        self.kps_weight_indices = torch.tensor(
+            kps_weight_indices) if kps_weight_indices else None
 
     def forward(self, output, mask, ind, target):
         pred = _transpose_and_gather_feat(output, ind)
