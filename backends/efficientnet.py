@@ -5,12 +5,34 @@ import numpy as np
 
 # key = deconv layer index, value = feature extractor layer index
 # all commented output shapes are for input size of 512x512
-SKIP_MAPPING = {
-    5: 4,  # cx64x64
-    2: 9  # cx128x128
+SKIP_MAPPINGS = {
+    "b0": {
+        5: 4,  # Cx64x64
+        2: 10  # Cx32x32
+    },
+    "b1": {
+        5: 7,  # Cx64x64
+        2: 15  # Cx32x32
+    },
+    "b2": {
+        5: 7,  # Cx64x64
+        2: 15  # Cx32x32
+    },
+    "b3": {
+        5: 7,  # Cx64x64
+        2: 17  # Cx32x32
+    },
+    "b7": {
+        5: 17,  # Cx64x64
+        2: 37  # Cx32x32
+    }
 }
 
-SKIP_MAPPING_REVERSED = {v: k for k, v in SKIP_MAPPING.items()}
+
+SKIP_MAPPINGS_REVERSED = {}
+
+for variant, mapping in SKIP_MAPPINGS.items():
+    SKIP_MAPPINGS_REVERSED[variant] = {v: k for k, v in mapping.items()}
 
 
 class CenterEfficientNet(nn.Module):
@@ -22,6 +44,7 @@ class CenterEfficientNet(nn.Module):
         self.use_skip = use_skip
         self.deconv_with_bias = False
         self.down_ratio = 4
+        self.variant = variant
         self.rotated_boxes = rotated_boxes
         self.base = torch.hub.load(
             'lukemelas/EfficientNet-PyTorch',
@@ -41,7 +64,7 @@ class CenterEfficientNet(nn.Module):
         )
 
         if self.use_skip:
-            for deconv_id, fe_id in SKIP_MAPPING.items():
+            for deconv_id, fe_id in SKIP_MAPPINGS[self.variant].items():
                 in_channels = self.base._blocks[fe_id]._project_conv.out_channels
                 # -2 because conv, bn, relu
                 out_channels = self.deconv_layers[deconv_id - 2].out_channels
@@ -87,8 +110,8 @@ class CenterEfficientNet(nn.Module):
                     drop_connect_rate *= float(idx) / len(self.base._blocks)
                 x = block(x, drop_connect_rate=drop_connect_rate)
 
-                if idx in SKIP_MAPPING.values():
-                    skip[SKIP_MAPPING_REVERSED[idx]] = x
+                if idx in SKIP_MAPPINGS[self.variant].values():
+                    skip[SKIP_MAPPINGS_REVERSED[self.variant][idx]] = x
 
             x = self.base._swish(self.base._bn1(self.base._conv_head(x)))
 
