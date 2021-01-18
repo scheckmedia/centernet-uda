@@ -25,17 +25,29 @@ class CenterNet(nn.Module):
 
     def forward(self, x):
         out = self.backend(x)
+        has_kps = "kps" in out
+
         dets = decode_detection(
             torch.clamp(out["hm"].sigmoid_(), min=1e-4, max=1 - 1e-4),
             out["wh"],
             out["reg"],
+            kps=out["kps"] if has_kps else None,
             K=self.max_detections)
+
+        if has_kps:
+            dets, kps = dets
+            kps[..., 0:2] *= self.backend.down_ratio
 
         dets[:, :, :4] *= self.backend.down_ratio
 
         # boxes, scores, classes
         if self.is_rotated:
+            if has_kps:
+                dets[:, :, :5], dets[:, :, 5], dets[:, :, 6], kps
             return dets[:, :, :5], dets[:, :, 5], dets[:, :, 6]
+
+        if has_kps:
+            return dets[:, :, :4], dets[:, :, 4], dets[:, :, 5], kps
 
         return dets[:, :, :4], dets[:, :, 4], dets[:, :, 5]
 
@@ -72,8 +84,8 @@ def export_model(experiment, model, model_name,
     shape = [1, ] + input_shape
     x = torch.randn(*shape, requires_grad=True)
     torch_out = model(x)
-
     outputs = ['output']
+
     if without_decode_detections:
         outputs = list(torch_out.keys())
 
