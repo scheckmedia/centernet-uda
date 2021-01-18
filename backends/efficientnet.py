@@ -6,8 +6,8 @@ import numpy as np
 # key = deconv layer index, value = feature extractor layer index
 # all commented output shapes are for input size of 512x512
 SKIP_MAPPING = {
-    3: 4,  # cx64x64
-    0: 9  # cx128x128
+    5: 4,  # cx64x64
+    2: 9  # cx128x128
 }
 
 SKIP_MAPPING_REVERSED = {v: k for k, v in SKIP_MAPPING.items()}
@@ -43,11 +43,17 @@ class CenterEfficientNet(nn.Module):
         if self.use_skip:
             for deconv_id, fe_id in SKIP_MAPPING.items():
                 in_channels = self.base._blocks[fe_id]._project_conv.out_channels
-                out_channels = self.deconv_layers[deconv_id].out_channels
+                # -2 because conv, bn, relu
+                out_channels = self.deconv_layers[deconv_id - 2].out_channels
+
+                skip = nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels, 1, padding=0),
+                    nn.BatchNorm2d(out_channels),
+                    nn.ReLU(inplace=True)
+                )
 
                 self.__setattr__(
-                    f"skip_{deconv_id}", nn.Conv2d(
-                        in_channels, out_channels, 1, padding=0))
+                    f"skip_{deconv_id}", skip)
 
         self.heads = heads
         for head in sorted(self.heads):
