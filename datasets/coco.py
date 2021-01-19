@@ -289,10 +289,8 @@ class Dataset(data.Dataset):
         else:
             img_aug, kpts_aug = np.copy(img), kpts.copy()
 
-        # seems to be a bug if keypoints is a list of KeypointsOnImage
         img_aug, kpts_aug = self.resize(
             image=img_aug, keypoints=kpts_aug)
-        # end workaround
 
         img = (img_aug.astype(np.float32) / 255.)
         inp = (img - self.mean) / self.std
