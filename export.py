@@ -32,7 +32,8 @@ class CenterNet(nn.Module):
             out["wh"],
             out["reg"],
             kps=out["kps"] if has_kps else None,
-            K=self.max_detections)
+            K=self.max_detections,
+            rotated=self.is_rotated)
 
         if has_kps:
             dets, kps = dets
@@ -43,7 +44,8 @@ class CenterNet(nn.Module):
         # boxes, scores, classes
         if self.is_rotated:
             if has_kps:
-                dets[:, :, :5], dets[:, :, 5], dets[:, :, 6], kps
+                return dets[:, :, :5], dets[:, :, 5], dets[:, :, 6], kps
+
             return dets[:, :, :5], dets[:, :, 5], dets[:, :, 6]
 
         if has_kps:
