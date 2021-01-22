@@ -196,7 +196,7 @@ class PeriodicRegL1Loss(torch.nn.Module):
         pred_angle = _sigmoid(pred[..., 2:3]) * 2 * np.pi - np.pi
 
         target_wh = target[..., 0:2]
-        target_angle = _sigmoid(target[..., 2:3]) * 2 * np.pi - np.pi
+        target_angle = torch.deg2rad(target[..., 2:3])
 
         # loss = F.l1_loss(pred * mask, target * mask,
         # reduction='elementwise_mean')
