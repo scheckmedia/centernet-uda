@@ -40,7 +40,7 @@ class CenterEfficientNet(nn.Module):
                  freeze_base=False, use_skip=False, rotated_boxes=False):
         super(CenterEfficientNet, self).__init__()
 
-        head_conv = 64
+        head_conv = 256
         self.use_skip = use_skip
         self.deconv_with_bias = False
         self.down_ratio = 4
