@@ -107,10 +107,10 @@ class RegL1Loss(torch.nn.Module):
         # if we have angle
         if pred.shape[-1] == 3:
             pred_wh = pred[..., 0:2]
-            pred_angle = pred[..., 2:3]
+            pred_angle = _sigmoid(pred[..., 2:3])
 
             target_wh = target[..., 0:2]
-            target_angle = target[..., 2:3]
+            target_angle = _sigmoid(target[..., 2:3])
 
             loss = F.l1_loss(pred_wh, target_wh, size_average=False)
             loss = loss / (mask.sum() + 1e-4)
@@ -193,10 +193,10 @@ class PeriodicRegL1Loss(torch.nn.Module):
         target *= mask
 
         pred_wh = pred[..., 0:2]
-        pred_angle = pred[..., 2:3]
+        pred_angle = _sigmoid(pred[..., 2:3]) * 2 * np.pi - np.pi
 
         target_wh = target[..., 0:2]
-        target_angle = target[..., 2:3]
+        target_angle = _sigmoid(target[..., 2:3]) * 2 * np.pi - np.pi
 
         # loss = F.l1_loss(pred * mask, target * mask,
         # reduction='elementwise_mean')

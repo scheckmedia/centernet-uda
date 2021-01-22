@@ -264,7 +264,7 @@ class Dataset(data.Dataset):
         for k in range(num_objs):
             ann = anns[k]
             ann_rotated = get_annotation_with_angle(ann)
-            ann_rotated[4] = np.radians(ann_rotated[4])
+            ann_rotated[4] = ann_rotated[4]
             rot = rotate_bbox(*ann_rotated)
             kpts.extend([Keypoint(*x) for x in rot])
 
@@ -347,7 +347,6 @@ class Dataset(data.Dataset):
             cls_id = int(self.cat_mapping[ann['category_id']])
 
             if h > 0 and w > 0:
-                angle = np.radians(angle)
                 radius = gaussian_radius((np.ceil(h), np.ceil(w)))
                 radius = max(0, int(radius))
                 ct_int = ct.astype(np.int32)

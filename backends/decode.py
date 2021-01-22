@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.tensor import _gather_feat, _transpose_and_gather_feat
+from utils.tensor import _gather_feat, _transpose_and_gather_feat, _sigmoid
 
 
 def _nms(heat, kernel=3):
@@ -58,9 +58,11 @@ def decode_detection(heat, wh, reg=None, kps=None, K=100, rotated=False):
                             xs + wh[..., 0:1] / 2,
                             ys + wh[..., 1:2] / 2], dim=2)
     else:
-        bboxes = torch.cat([
-            xs, ys, wh[..., 0:1], wh[..., 1:2], wh[..., 2:3]
-        ], dim=2)
+        bboxes = torch.cat(
+            [xs, ys, wh[..., 0: 1],
+             wh[..., 1: 2],
+             _sigmoid(wh[..., 2: 3]) * 360.0 - 180.0],
+            dim=2)
     detections = torch.cat([bboxes, scores, clses], dim=2)
 
     if kps is not None:
