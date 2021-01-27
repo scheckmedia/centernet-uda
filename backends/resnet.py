@@ -13,7 +13,8 @@ RESNET_MODELS = {
 
 
 class CenterResNet(nn.Module):
-    def __init__(self, num_layers, heads, pretrained, freeze_base=False, rotated_boxes=False):
+    def __init__(self, num_layers, heads, pretrained,
+                 freeze_base=False, rotated_boxes=False):
         super(CenterResNet, self).__init__()
 
         base_name = f'resnet{num_layers}'
@@ -99,7 +100,8 @@ class CenterResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def build(num_layers, num_classes, num_keypoints=0, pretrained=True, freeze_base=False, rotated_boxes=False):
+def build(num_layers, num_classes, num_keypoints=0,
+          pretrained=True, freeze_base=False, rotated_boxes=False):
 
     assert num_layers in RESNET_MODELS.keys()
 

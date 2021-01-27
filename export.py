@@ -17,11 +17,12 @@ except BaseException:
 
 
 class CenterNet(nn.Module):
-    def __init__(self, backend, max_detections, is_rotated=False):
+    def __init__(self, backend, max_detections, is_rotated=False, nms=3):
         super().__init__()
         self.backend = backend
         self.max_detections = max_detections
         self.is_rotated = is_rotated
+        self.nms = nms
 
     def forward(self, x):
         out = self.backend(x)
@@ -33,7 +34,8 @@ class CenterNet(nn.Module):
             out["reg"],
             kps=out["kps"] if has_kps else None,
             K=self.max_detections,
-            rotated=self.is_rotated)
+            rotated=self.is_rotated,
+            nms_size=self.nms)
 
         if has_kps:
             dets, kps = dets
@@ -55,7 +57,7 @@ class CenterNet(nn.Module):
 
 
 def build_model(experiment, model_spec, without_decode_detections,
-                max_detections, use_last=True):
+                max_detections, nms=3, use_last=True):
 
     module = import_module(f"backends.{model_spec['name']}")
     backend = getattr(module, 'build')(**model_spec["params"])
@@ -73,7 +75,7 @@ def build_model(experiment, model_spec, without_decode_detections,
 
     if not without_decode_detections:
         model = CenterNet(backend, max_detections,
-                          model_spec["params"]["rotated_boxes"])
+                          model_spec["params"]["rotated_boxes"], nms)
     else:
         model = backend
 
@@ -154,6 +156,10 @@ if __name__ == "__main__":
         "-s", "--simplify", action="store_true",
         help="If given it will be tried to simplify the model using onnx-simplifier."
     )
+    parser.add_argument(
+        "--nms", type=int, default=3,
+        help="Kernel size for max pooling or CenterNet NMS."
+    )
 
     args = parser.parse_args()
     experiment = Path(args.experiment)
@@ -185,6 +191,7 @@ if __name__ == "__main__":
         model_specs,
         args.without_decode_detections,
         cfg["max_detections"],
+        args.nms,
         args.use_last)
 
     export_model(

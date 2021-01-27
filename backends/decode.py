@@ -32,12 +32,13 @@ def _topk(scores, K=40):
     return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
 
 
-def decode_detection(heat, wh, reg=None, kps=None, K=100, rotated=False):
+def decode_detection(heat, wh, reg=None, kps=None,
+                     K=100, rotated=False, nms_size=3):
     batch, cat, height, width = heat.size()
 
     # heat = heat.sigmoid_()
     # perform nms on heatmaps
-    heat = _nms(heat)
+    heat = _nms(heat, nms_size)
 
     scores, inds, clses, ys, xs = _topk(heat, K=K)
     if reg is not None:
