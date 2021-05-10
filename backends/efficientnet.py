@@ -36,11 +36,15 @@ for variant, mapping in SKIP_MAPPINGS.items():
 
 
 class CenterEfficientNet(nn.Module):
-    def __init__(self, variant, heads, pretrained,
-                 freeze_base=False, use_skip=False, rotated_boxes=False):
+    def __init__(
+            self, variant, heads, pretrained, freeze_base=False,
+            use_skip=False, rotated_boxes=False, use_upsample=False,
+            num_head_channels=256, num_deconv_channels=[256, 256, 256]):
         super(CenterEfficientNet, self).__init__()
 
-        head_conv = 256
+        assert len(num_deconv_channels) == 3
+
+        head_conv = num_head_channels
         self.use_skip = use_skip
         self.deconv_with_bias = False
         self.down_ratio = 4
@@ -51,12 +55,13 @@ class CenterEfficientNet(nn.Module):
             f'efficientnet_{variant}',
             pretrained=pretrained)
         self.inplanes = self.base._bn1.num_features
+        self.use_upsample = use_upsample
 
         if freeze_base:
             for layer in self.base.parameters():
                 layer.requires_grad = False
 
-        self.deconv_layer_channels = [256, 256, 256]
+        self.deconv_layer_channels = num_deconv_channels
         self.deconv_layers = self._make_deconv_layer(
             3,
             self.deconv_layer_channels,
@@ -64,10 +69,17 @@ class CenterEfficientNet(nn.Module):
         )
 
         if self.use_skip:
-            for deconv_id, fe_id in SKIP_MAPPINGS[self.variant].items():
+            for i, (deconv_id, fe_id) in enumerate(
+                    SKIP_MAPPINGS[self.variant].items()):
                 in_channels = self.base._blocks[fe_id]._project_conv.out_channels
                 # -2 because conv, bn, relu
-                out_channels = self.deconv_layers[deconv_id - 2].out_channels
+
+                if self.use_upsample:
+                    out_channels = self.deconv_layers[deconv_id -
+                                                      i *
+                                                      1].out_channels
+                else:
+                    out_channels = self.deconv_layers[deconv_id - 2].out_channels
 
                 skip = nn.Sequential(
                     nn.Conv2d(in_channels, out_channels, 1, padding=0),
@@ -88,8 +100,7 @@ class CenterEfficientNet(nn.Module):
                     kernel_size=3,
                     padding=1,
                     bias=True),
-                nn.ReLU(
-                    inplace=True),
+                nn.ReLU(inplace=True),
                 nn.Conv2d(
                     head_conv,
                     num_output,
@@ -98,7 +109,7 @@ class CenterEfficientNet(nn.Module):
                     padding=0))
             self.__setattr__(head, fc)
 
-    def forward(self, x):
+    def forward_to_deconv(self, x):
         if self.use_skip:
             skip = {}
             x = self.base._swish(self.base._bn0(self.base._conv_stem(x)))
@@ -125,6 +136,11 @@ class CenterEfficientNet(nn.Module):
         else:
             x = self.base.extract_features(x)
             x = self.deconv_layers(x)
+
+        return x
+
+    def forward(self, x):
+        x = self.forward_to_deconv(x)
 
         z = {}
         for head in self.heads:
@@ -157,15 +173,26 @@ class CenterEfficientNet(nn.Module):
                 self._get_deconv_cfg(num_kernels[i], i)
 
             planes = num_filters[i]
-            layers.append(
-                nn.ConvTranspose2d(
+            if self.use_upsample:
+                layers.append(nn.Upsample(scale_factor=4, mode='bilinear'))
+                layers.append(nn.Conv2d(
                     in_channels=self.inplanes,
                     out_channels=planes,
-                    kernel_size=kernel,
+                    kernel_size=3,
                     stride=2,
                     padding=padding,
-                    output_padding=output_padding,
-                    bias=self.deconv_with_bias))
+                    bias=self.deconv_with_bias
+                ))
+            else:
+                layers.append(
+                    nn.ConvTranspose2d(
+                        in_channels=self.inplanes,
+                        out_channels=planes,
+                        kernel_size=kernel,
+                        stride=2,
+                        padding=padding,
+                        output_padding=output_padding,
+                        bias=self.deconv_with_bias))
             layers.append(nn.BatchNorm2d(planes, momentum=0.1))
             layers.append(nn.ReLU(inplace=True))
             self.inplanes = planes
@@ -174,7 +201,7 @@ class CenterEfficientNet(nn.Module):
 
 
 def build(num_classes, variant='b0', num_keypoints=0, pretrained=True,
-          freeze_base=False, rotated_boxes=False, use_skip=False):
+          freeze_base=False, rotated_boxes=False, use_skip=False, **kwargs):
 
     if variant not in [f"b{x}" for x in range(0, 9)]:
         raise NotImplementedError(
@@ -193,4 +220,4 @@ def build(num_classes, variant='b0', num_keypoints=0, pretrained=True,
                               pretrained=pretrained,
                               freeze_base=freeze_base,
                               rotated_boxes=rotated_boxes,
-                              use_skip=use_skip)
+                              use_skip=use_skip, **kwargs)
