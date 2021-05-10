@@ -8,7 +8,7 @@ class DetectionLoss(torch.nn.Module):
     def __init__(
             self, hm_weight, wh_weight, off_weight, kp_weight=None,
             angle_weight=1.0, periodic=False, kp_indices=None,
-            kp_distance_weight=0.1):
+            kp_distance_weight=0.1, kp_distance_weight_l1=False):
         super().__init__()
         self.crit_hm = FocalLoss(weight=hm_weight)
         self.crit_reg = RegL1Loss(off_weight)
@@ -22,7 +22,11 @@ class DetectionLoss(torch.nn.Module):
         self.kp_distance_indices = None
         if kp_weight is not None or kp_indices is not None:
             self.with_keypoints = True
-            self.crit_kp = KPSL1Loss(kp_weight, kp_indices, kp_distance_weight)
+            self.crit_kp = KPSL1Loss(
+                kp_weight,
+                kp_indices,
+                kp_distance_weight,
+                kp_distance_weight_l1)
 
     def forward(self, output, batch):
         hm_loss, wh_loss, off_loss, kp_loss = 0.0, 0.0, 0.0, 0.0
@@ -131,12 +135,13 @@ class RegL1Loss(torch.nn.Module):
 
 class KPSL1Loss(torch.nn.Module):
     def __init__(self, weight=1.0, kps_weight_indices=None,
-                 distance_weight=0.1):
+                 distance_weight=0.1, use_l1=False):
         super().__init__()
         self.weight = weight
         self.distance_weight = distance_weight
         self.kps_weight_indices = torch.tensor(
             kps_weight_indices) if kps_weight_indices else None
+        self.use_l1 = use_l1
 
     def forward(self, output, mask, ind, target):
         pred = _transpose_and_gather_feat(output, ind)
@@ -165,8 +170,12 @@ class KPSL1Loss(torch.nn.Module):
                 :, :, self.kps_weight_indices[:, 1],
                 :]
 
-            pred_distances = torch.abs(p_a - p_b).sum(-1)
-            target_distances = torch.abs(t_a - t_b).sum(-1)
+            if self.use_l1:
+                pred_distances = torch.abs(p_a - p_b).sum(-1)
+                target_distances = torch.abs(t_a - t_b).sum(-1)
+            else:
+                pred_distances = (((p_a - p_b)**2).sum(-1) + 1e4) ** 0.5
+                target_distances = (((t_a - t_b)**2).sum(-1) + 1e4) ** 0.5
 
             dist_loss = F.l1_loss(
                 pred_distances,
