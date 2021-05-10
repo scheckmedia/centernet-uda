@@ -88,10 +88,12 @@ def export_model(experiment, model, model_name,
     shape = [1, ] + input_shape
     x = torch.randn(*shape, requires_grad=True)
     torch_out = model(x)
-    outputs = ['output']
+    possible_outputs = ['boxes', 'scores', 'classes', 'kps']
 
     if without_decode_detections:
         outputs = list(torch_out.keys())
+    else:
+        outputs = [possible_outputs[i] for i in range(len(torch_out))]
 
     suffix = '_wd' if without_decode_detections else ''
     output_path = experiment / \
@@ -103,9 +105,8 @@ def export_model(experiment, model, model_name,
                       opset_version=11,          # the ONNX version to export the model to
                       do_constant_folding=True,  # whether to execute constant folding for optimization
                       input_names=['input'],   # the model's input names
-                      output_names=outputs,
-                      dynamic_axes={'input': {0: 'batch_size'},    # variable lenght axes
-                                    'output': {0: 'batch_size'}})
+                      output_names=outputs)
+    # dynamic_axes={'input': {0: 'batch_size'}})
 
     print(f"Export model to {output_path} successful!")
 
