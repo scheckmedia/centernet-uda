@@ -170,7 +170,7 @@ class Dataset(data.Dataset):
         reg = np.zeros((self.max_detections, 2), dtype=np.float32)
         ind = np.zeros((self.max_detections), dtype=np.int64)
         reg_mask = np.zeros((self.max_detections), dtype=np.uint8)
-        gt_det = np.zeros((self.max_detections, num_classes), dtype=np.float32)
+        gt_det = np.zeros((self.max_detections, 6), dtype=np.float32)
         gt_areas = np.zeros((self.max_detections), dtype=np.float32)
 
         if self.num_keypoints > 0:

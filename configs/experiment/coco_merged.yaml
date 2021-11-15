@@ -1,10 +1,10 @@
-experiment: auxilia_rotated
+experiment: auxilia_b3_deg_w_habbof_cepdof_l2
 pretrained:
 model:
   backend:
     name: efficientnet
     params:
-      variant: b0
+      variant: b3
       rotated_boxes: True
       num_classes: 6
       num_keypoints: 5
@@ -13,14 +13,12 @@ model:
       name: centernet.DetectionLoss
       params:
         periodic: True
-        angle_weight: 2.0
-        kp_weight: 1.0
+        angle_weight: 1.0
+        kp_weight: 2.0
         kp_indices: [[0, 1], [0, 4], [1, 4], [2, 3], [1, 2], [4, 3]]
-        kp_distance_weight: 0.5
+        kp_distance_weight: 10.0
 
   uda:
-    EntropyMinimization:
-      entropy_weight: 0.0001
 
 datasets:
   training:
@@ -30,18 +28,22 @@ datasets:
         - name: coco
           params:
             image_folder: /mnt/datasets_ssd/theodore_plus/images/
-            annotation_file: /mnt/datasets_ssd/theodore_plus/coco/annotations/instances.json
+            annotation_file: /mnt/datasets_ssd/theodore_plus/coco/annotations/instances_without_mask.json
             target_domain_glob: &target_domain
-              - /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
-              - /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/images/*.jpg
+              #- /mnt/datasets_ssd/DST/2020-02-14-14h30m47s/*.png
+              #- /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/images/*.jpg
+
+
             augmentation: &augmentation
               - Sometimes:
                   p: 0.8
                   then_list:
+                    - Grayscale:
+                        alpha: [0.0, 1.0]
                     - AddToHue:
-                        value: [-128, 128]
+                        value: [-90, 90]
                     - AddToBrightness:
-                        add: [-100, 100]
+                        add: [-50, 50]
                     - MotionBlur:
                         k: [3, 10]
                         angle: [-90, 90]
@@ -59,31 +61,50 @@ datasets:
                   p: 0.5
         - name: coco
           params:
+            image_folder: /mnt/datasets_ssd/mpii/images
+            annotation_file: /mnt/datasets_ssd/mpii/annotation_bbox_rbbox_keypoints.json
+            target_domain_glob: *target_domain
+            augmentation: &augmentation_real
+              - Sometimes:
+                  p: 0.8
+                  then_list:
+                    - Grayscale:
+                        alpha: [0.0, 1.0]
+                    - AddToHue:
+                        value: [-30, 30]
+                    - AddToBrightness:
+                        add: [-50, 50]
+                    - Affine:
+                        translate_percent: [-0.1, 0.1]
+                        scale: [0.9, 1.1]
+                        # rotate: [-45, 45]
+                    - Crop:
+                        percent: [0.0, 0.2]
+              - Fliplr:
+                  p: 0.5
+              - Flipud:
+                  p: 0.5
+        - name: coco
+          params:
             image_folder: /mnt/datasets_ssd/DST/val
             annotation_file: /mnt/datasets_ssd/DST/instances_val_with_rbbox.json
             target_domain_glob: *target_domain
-            augmentation: *augmentation
+            augmentation: *augmentation_real
         - name: coco
           params:
             image_folder: /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/images
-            annotation_file: /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/annotations/MW-R+HABBOF_instances_with_rbbox.json
+            annotation_file: /mnt/datasets_ssd/CEPDOF+HABBOF+MR-R/annotations/CEPDOF+HABBOF_instances_with_rbbox.json
             target_domain_glob: *target_domain
-            augmentation: *augmentation
-        - name: coco
-          params:
-            image_folder: /mnt/datasets_ssd/mscoco/train2017
-            annotation_file: /mnt/datasets_ssd/mscoco/annotations/instances_train2017_rbox_keypoints.json
-            target_domain_glob: *target_domain
-            augmentation: *augmentation
+            augmentation: *augmentation_real
   validation:
     params:
-      input_size: [800, 800]
+      input_size: [512, 512]
       annotation_file: /mnt/data/datasets/omnidetector-Flat/coco/annotations/instances_default_with_rbbox.json
 
 optimizer:
   name: Adam
   params:
-    lr: 0.00001
+    lr: 0.00005
     weight_decay: 0.0001
     # momentum: 0.9
   scheduler:
@@ -93,7 +114,8 @@ optimizer:
       eta_min: 1e-7
 score_threshold: 0.01
 num_workers: 6
-batch_size: 13
+epochs: 500
+batch_size: 16
 gpu:
   - 0
   - 1

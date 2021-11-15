@@ -1,17 +1,19 @@
-experiment: keypoints_distance
+experiment: keypoints_effnet_b0
 pretrained:
 model:
   backend:
-    name: resnet
+    name: efficientnet
     params:
-      num_layers: 101
+      variant: b0
       num_classes: 6
       num_keypoints: 5
+      use_skip: True
     loss:
       name: centernet.DetectionLoss
       params:
         kp_weight: 1.0
         kp_indices: [[0, 1], [0, 4], [1, 4], [2, 3], [1, 2], [4, 3]]
+        kp_distance_weight: 0.5
   uda:
     EntropyMinimization:
       entropy_weight: 0.001
@@ -39,7 +41,7 @@ optimizer:
       eta_min: 1e-8
 score_threshold: 0.01
 num_workers: 6
-batch_size: 13
+batch_size: 16
 gpu:
   - 0
   - 1
